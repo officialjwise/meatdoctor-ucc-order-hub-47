@@ -11,12 +11,28 @@ import LocationManagement from '@/components/LocationManagement';
 import PaymentMethodManagement from '@/components/PaymentMethodManagement';
 import { getBookings } from '@/lib/storage';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { initNotificationSound, checkForNewOrders, playNotificationSound } from '@/lib/notifications';
+import { toast } from 'sonner';
+import { Bell } from 'lucide-react';
 
 const AdminDashboard = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const [bookings, setBookings] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [previousBookingCount, setPreviousBookingCount] = useState(0);
+  
+  useEffect(() => {
+    // Initialize notification sound
+    initNotificationSound();
+    
+    // Set up polling for new bookings
+    const pollInterval = setInterval(() => {
+      loadBookings();
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, []);
   
   useEffect(() => {
     loadBookings();
@@ -24,7 +40,34 @@ const AdminDashboard = () => {
   
   const loadBookings = () => {
     const allBookings = getBookings();
+    
+    // Check if we have new bookings
+    if (previousBookingCount > 0 && allBookings.length > previousBookingCount) {
+      // New order received!
+      playNotificationSound();
+      
+      toast(
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-amber-500" />
+          <span>New order received!</span>
+        </div>,
+        {
+          description: `You have received ${allBookings.length - previousBookingCount} new order(s).`,
+          action: {
+            label: "View",
+            onClick: () => {
+              // Navigate to bookings if not already there
+              if (!location.pathname.endsWith('/dashboard')) {
+                window.location.href = '/admin/dashboard';
+              }
+            }
+          }
+        }
+      );
+    }
+    
     setBookings(allBookings);
+    setPreviousBookingCount(allBookings.length);
   };
   
   const handleBookingsUpdate = () => {

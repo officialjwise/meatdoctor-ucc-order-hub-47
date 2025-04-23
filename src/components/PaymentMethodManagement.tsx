@@ -1,19 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { PaymentMode, getPaymentModes, savePaymentMode, deletePaymentMode } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Card } from '@/components/ui/card';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -22,359 +17,226 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { 
-  Trash2, 
-  Edit, 
-  Search,
-  CreditCard,
-  Plus
-} from 'lucide-react';
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { getPaymentModes, savePaymentMode, deletePaymentMode, PaymentMode } from '@/lib/storage';
+import Sweetalert2 from 'sweetalert2';
 
 const PaymentMethodManagement = () => {
   const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [editingPaymentMode, setEditingPaymentMode] = useState<PaymentMode | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [paymentModeToDelete, setPaymentModeToDelete] = useState<number | null>(null);
-
-  const [newPaymentMode, setNewPaymentMode] = useState<Omit<PaymentMode, 'id'>>({
+  const [openDialog, setOpenDialog] = useState(false);
+  const [currentMethod, setCurrentMethod] = useState<PaymentMode | null>(null);
+  
+  // New payment method form state
+  const [formData, setFormData] = useState({
     name: '',
     description: '',
-    active: true,
+    active: true
   });
-
-  // Load payment modes from localStorage
+  
   useEffect(() => {
-    setPaymentModes(getPaymentModes());
+    loadPaymentMethods();
   }, []);
-
-  const filteredPaymentModes = paymentModes.filter(paymentMode => 
-    paymentMode.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    paymentMode.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleAddPaymentMode = () => {
-    // Validate inputs
-    if (!newPaymentMode.name.trim()) {
-      toast.error('Payment method name is required');
-      return;
+  
+  const loadPaymentMethods = () => {
+    const methods = getPaymentModes();
+    setPaymentModes(methods);
+  };
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleSwitchChange = (checked: boolean) => {
+    setFormData(prev => ({ ...prev, active: checked }));
+  };
+  
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      active: true
+    });
+    setCurrentMethod(null);
+  };
+  
+  const handleEdit = (method: PaymentMode) => {
+    setCurrentMethod(method);
+    setFormData({
+      name: method.name,
+      description: method.description || '',
+      active: method.active
+    });
+    setOpenDialog(true);
+  };
+  
+  const handleDelete = async (id: number) => {
+    const result = await Sweetalert2.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    });
+    
+    if (result.isConfirmed) {
+      const success = deletePaymentMode(id);
+      if (success) {
+        loadPaymentMethods();
+        Sweetalert2.fire(
+          'Deleted!',
+          'Payment method has been deleted.',
+          'success'
+        );
+      } else {
+        Sweetalert2.fire(
+          'Error',
+          'Failed to delete payment method.',
+          'error'
+        );
+      }
     }
-
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      // Create a new payment mode without ID (will be generated in savePaymentMode)
-      const savedPaymentMode = savePaymentMode(newPaymentMode as PaymentMode);
+      const paymentMethodData: PaymentMode = {
+        id: currentMethod?.id || 0,
+        name: formData.name,
+        description: formData.description,
+        active: formData.active
+      };
       
-      // Update the payment modes list
-      setPaymentModes(getPaymentModes());
+      savePaymentMode(paymentMethodData);
+      loadPaymentMethods();
       
-      // Reset form
-      setNewPaymentMode({
-        name: '',
-        description: '',
-        active: true,
+      Sweetalert2.fire({
+        title: 'Success!',
+        text: `Payment method ${currentMethod ? 'updated' : 'added'} successfully.`,
+        icon: 'success',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false
       });
       
-      toast.success(`${savedPaymentMode.name} has been added successfully`);
+      resetForm();
+      setOpenDialog(false);
     } catch (error) {
       console.error('Error saving payment method:', error);
-      toast.error('Failed to add payment method');
+      Sweetalert2.fire(
+        'Error',
+        'Failed to save payment method.',
+        'error'
+      );
     }
   };
-
-  const handleEditPaymentMode = (paymentMode: PaymentMode) => {
-    setEditingPaymentMode({ ...paymentMode });
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdatePaymentMode = () => {
-    if (!editingPaymentMode) return;
-
-    // Validate inputs
-    if (!editingPaymentMode.name.trim()) {
-      toast.error('Payment method name is required');
-      return;
-    }
-
-    try {
-      // Update the payment mode
-      savePaymentMode(editingPaymentMode);
-      
-      // Update the payment modes list
-      setPaymentModes(getPaymentModes());
-      
-      // Close dialog and reset form
-      setIsEditDialogOpen(false);
-      setEditingPaymentMode(null);
-      
-      toast.success(`Payment method updated successfully`);
-    } catch (error) {
-      console.error('Error updating payment method:', error);
-      toast.error('Failed to update payment method');
-    }
-  };
-
-  const confirmDelete = (id: number) => {
-    setPaymentModeToDelete(id);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeletePaymentMode = () => {
-    if (paymentModeToDelete === null) return;
-
-    try {
-      const result = deletePaymentMode(paymentModeToDelete);
-      
-      if (result) {
-        // Update the payment modes list
-        setPaymentModes(getPaymentModes());
-        toast.success('Payment method deleted successfully');
-      } else {
-        toast.error('Failed to delete payment method');
-      }
-      
-      // Close dialog and reset
-      setIsDeleteDialogOpen(false);
-      setPaymentModeToDelete(null);
-    } catch (error) {
-      console.error('Error deleting payment method:', error);
-      toast.error('Failed to delete payment method');
-    }
-  };
-
-  const togglePaymentModeActive = (paymentMode: PaymentMode) => {
-    const updatedPaymentMode = {
-      ...paymentMode,
-      active: !paymentMode.active
-    };
-
-    try {
-      savePaymentMode(updatedPaymentMode);
-      setPaymentModes(getPaymentModes());
-      toast.success(`${paymentMode.name} is now ${!paymentMode.active ? 'active' : 'inactive'}`);
-    } catch (error) {
-      console.error('Error toggling payment method status:', error);
-      toast.error('Failed to update payment method status');
-    }
-  };
-
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Payment Methods</h2>
-        <Dialog>
+        <h2 className="text-lg font-medium">Available Payment Methods</h2>
+        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogTrigger asChild>
-            <Button variant="default">
-              <CreditCard className="mr-2 h-4 w-4" /> Add New Payment Method
-            </Button>
+            <Button onClick={resetForm}>Add Payment Method</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Payment Method</DialogTitle>
+              <DialogTitle>{currentMethod ? 'Edit' : 'Add'} Payment Method</DialogTitle>
               <DialogDescription>
-                Create a new payment method to be available on the ordering page.
+                {currentMethod ? 'Update the' : 'Add a new'} payment method for customers.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <label htmlFor="paymentModeName" className="block text-sm font-medium mb-1">
-                  Payment Method Name *
-                </label>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Method Name</Label>
                 <Input
-                  id="paymentModeName"
-                  placeholder="Enter payment method name"
-                  value={newPaymentMode.name}
-                  onChange={(e) => setNewPaymentMode({ ...newPaymentMode, name: e.target.value })}
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
                 />
               </div>
               
-              <div>
-                <label htmlFor="paymentModeDescription" className="block text-sm font-medium mb-1">
-                  Description
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
                 <Textarea
-                  id="paymentModeDescription"
-                  placeholder="Describe the payment method (optional)"
-                  value={newPaymentMode.description || ''}
-                  onChange={(e) => setNewPaymentMode({ ...newPaymentMode, description: e.target.value })}
-                  rows={3}
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Describe how to use this payment method"
                 />
               </div>
               
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="paymentModeActive"
-                  checked={newPaymentMode.active}
-                  onCheckedChange={(checked) => setNewPaymentMode({ ...newPaymentMode, active: checked })}
+                  id="active"
+                  checked={formData.active}
+                  onCheckedChange={handleSwitchChange}
                 />
-                <label htmlFor="paymentModeActive" className="text-sm font-medium">
-                  Active
-                </label>
+                <Label htmlFor="active">Active</Label>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" type="button">Cancel</Button>
-              <Button onClick={handleAddPaymentMode}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Payment Method
-              </Button>
-            </DialogFooter>
+              
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {currentMethod ? 'Update' : 'Add'} Method
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
-
-      <Card className="p-4">
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search payment methods..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {paymentModes.map((method) => (
+          <Card key={method.id} className={method.active ? 'border-primary/30' : 'opacity-70'}>
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                <span>{method.name}</span>
+                {method.active ? (
+                  <span className="text-xs font-medium py-1 px-2 bg-green-100 text-green-800 rounded-full dark:bg-green-900 dark:text-green-100">
+                    Active
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium py-1 px-2 bg-gray-100 text-gray-800 rounded-full dark:bg-gray-800 dark:text-gray-300">
+                    Inactive
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {method.description || 'No description provided.'}
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => handleEdit(method)}>
+                Edit
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => handleDelete(method.id)}>
+                Delete
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+      
+      {paymentModes.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No payment methods added yet.</p>
         </div>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredPaymentModes.length > 0 ? (
-              filteredPaymentModes.map((paymentMode) => (
-                <TableRow key={paymentMode.id}>
-                  <TableCell className="font-medium">{paymentMode.name}</TableCell>
-                  <TableCell className="max-w-[300px] truncate">
-                    {paymentMode.description || '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={paymentMode.active}
-                      onCheckedChange={() => togglePaymentModeActive(paymentMode)}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => handleEditPaymentMode(paymentMode)}
-                      className="mr-2"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => confirmDelete(paymentMode.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-4">
-                  No payment methods found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      {/* Form moved to dialog */}
-
-      {/* Edit Payment Mode Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Payment Method</DialogTitle>
-            <DialogDescription>
-              Make changes to the payment method details below.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {editingPaymentMode && (
-            <div className="space-y-4 py-4">
-              <div>
-                <label htmlFor="editPaymentModeName" className="block text-sm font-medium mb-1">
-                  Payment Method Name *
-                </label>
-                <Input
-                  id="editPaymentModeName"
-                  placeholder="Enter payment method name"
-                  value={editingPaymentMode.name}
-                  onChange={(e) => setEditingPaymentMode({ ...editingPaymentMode, name: e.target.value })}
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="editPaymentModeDescription" className="block text-sm font-medium mb-1">
-                  Description
-                </label>
-                <Textarea
-                  id="editPaymentModeDescription"
-                  placeholder="Describe the payment method (optional)"
-                  value={editingPaymentMode.description || ''}
-                  onChange={(e) => setEditingPaymentMode({ ...editingPaymentMode, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="editPaymentModeActive"
-                  checked={editingPaymentMode.active}
-                  onCheckedChange={(checked) => 
-                    setEditingPaymentMode({ ...editingPaymentMode, active: checked })
-                  }
-                />
-                <label htmlFor="editPaymentModeActive" className="text-sm font-medium">
-                  Active
-                </label>
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdatePaymentMode}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this payment method? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeletePaymentMode}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      )}
     </div>
   );
 };

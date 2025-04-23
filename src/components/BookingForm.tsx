@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ import {
   ValidationResult, 
   formatGhanaPhone 
 } from '@/lib/validation';
+import { initNotificationSound, sendOrderNotificationEmail } from '@/lib/notifications';
 import OrderSummary from './OrderSummary';
 import { useTheme } from '@/hooks/use-theme';
 import ImageGallery from './ImageGallery';
@@ -91,12 +93,16 @@ const BookingForm = () => {
       .filter(mode => mode.active)
       .map(mode => mode.name)
     );
+    
+    // Initialize notification sound
+    initNotificationSound();
   }, []);
 
   useEffect(() => {
     if (formData.foodId) {
       const food = foodItems.find(f => f.id === formData.foodId);
       if (food) {
+        // Automatically set the price from the food item
         setFormData(prev => ({ ...prev, price: food.price }));
         setSelectedFood(food);
         
@@ -193,6 +199,9 @@ const BookingForm = () => {
         };
         
         saveBooking(booking);
+        
+        // Send email notification for admin
+        sendOrderNotificationEmail(booking);
         
         setShowConfirmation(true);
         

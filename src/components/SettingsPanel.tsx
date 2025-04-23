@@ -1,413 +1,289 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { 
-  getSiteSettings, 
-  updateSiteSettings, 
-  SiteSettings 
-} from '@/lib/storage';
-import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { getSiteSettings, updateSiteSettings, SiteSettings } from '@/lib/storage';
+import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
+import Sweetalert2 from 'sweetalert2';
 
 const SettingsPanel = () => {
-  const defaultSettings: SiteSettings = {
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     siteName: 'MeatDoctor UCC',
     siteDescription: 'Your favorite food delivery service',
     contactEmail: 'contact@meatdoctorucc.com',
-    contactPhone: '+233 XX XXX XXXX',
-    contactAddress: 'University of Cape Coast, Ghana',
-    bgImageUrl: '',
+    contactPhone: '+233 20 000 0000',
+    contactAddress: 'Cape Coast, Ghana',
+    bgImageUrl: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?ixlib=rb-1.2.1&auto=format&fit=crop&w=1770&q=80',
     darkModeEnabled: true,
     notificationsEnabled: true,
     footerText: '© 2023 MeatDoctor UCC. All rights reserved.'
-  };
+  });
   
-  const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
-  const [activeTab, setActiveTab] = useState('general');
-  const [bgImageFile, setBgImageFile] = useState<File | null>(null);
-  const [bgImagePreview, setBgImagePreview] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   
-  // Load settings from localStorage
   useEffect(() => {
-    const savedSettings = getSiteSettings();
-    if (savedSettings) {
-      setSettings(savedSettings);
-      
-      if (savedSettings.bgImageUrl) {
-        setBgImagePreview(savedSettings.bgImageUrl);
+    const settings = getSiteSettings();
+    if (settings) {
+      setSiteSettings(settings);
+      if (settings.bgImageUrl) {
+        setImagePreview(settings.bgImageUrl);
       }
     }
   }, []);
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setSettings((prev) => ({ ...prev, [name]: value }));
+    setSiteSettings(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleToggleChange = (name: string, checked: boolean) => {
-    setSettings((prev) => ({ ...prev, [name]: checked }));
+  const handleSwitchChange = (name: string, checked: boolean) => {
+    setSiteSettings(prev => ({ ...prev, [name]: checked }));
   };
   
   const handleRichTextChange = (name: string, value: string) => {
-    setSettings((prev) => ({ ...prev, [name]: value }));
+    setSiteSettings(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleSaveSettings = () => {
-    try {
-      // Upload image if present
-      if (bgImageFile) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (e.target?.result) {
-            // Save the image as base64
-            const imageDataUrl = e.target.result.toString();
-            const updatedSettings = {
-              ...settings,
-              bgImageUrl: imageDataUrl
-            };
-            
-            updateSiteSettings(updatedSettings);
-            showSuccessAlert('Success', 'Settings saved successfully');
-          }
-        };
-        reader.readAsDataURL(bgImageFile);
-      } else {
-        // Save without changing the image
-        updateSiteSettings(settings);
-        showSuccessAlert('Success', 'Settings saved successfully');
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      showErrorAlert('Error', 'Failed to save settings');
-    }
-  };
-  
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    
-    if (file) {
-      // Validate file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        showErrorAlert('File Too Large', 'Image must be less than 2MB');
-        return;
-      }
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
       
-      // Validate file type
-      if (!file.type.match('image.*')) {
-        showErrorAlert('Invalid File Type', 'Please upload an image file');
-        return;
-      }
-      
-      setBgImageFile(file);
-      
-      // Create preview URL
+      // Create a preview
       const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          setBgImagePreview(e.target.result.toString());
-        }
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
   
-  const removeImage = () => {
-    setBgImageFile(null);
-    setBgImagePreview('');
-    setSettings((prev) => ({ ...prev, bgImageUrl: '' }));
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    try {
+      // If there's a new image file, convert it to base64 and save it
+      if (imageFile) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const updatedSettings = {
+            ...siteSettings,
+            bgImageUrl: reader.result as string
+          };
+          
+          updateSiteSettings(updatedSettings);
+          showSuccessAlert('Success!', 'Settings updated successfully.');
+        };
+        reader.readAsDataURL(imageFile);
+      } else {
+        // Just save the current settings
+        updateSiteSettings(siteSettings);
+        showSuccessAlert('Success!', 'Settings updated successfully.');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      showErrorAlert('Error!', 'Failed to save settings.');
     }
   };
   
-  const quillModules = {
-    toolbar: [
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      ['link'],
-      ['clean']
-    ],
-  };
-  
-  const quillFormats = [
-    'bold', 'italic', 'underline', 'strike',
-    'color', 'background',
-    'list', 'bullet',
-    'link'
-  ];
-  
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">System Settings</h2>
-      </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Tabs defaultValue="general">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          <TabsTrigger value="contact">Contact</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
+          <TabsTrigger value="contact">Contact Info</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="general" className="space-y-4">
+        <TabsContent value="general" className="space-y-4 pt-4">
           <Card>
             <CardHeader>
               <CardTitle>General Settings</CardTitle>
               <CardDescription>
-                Basic settings for your application
+                Configure the basic information about your restaurant.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <label htmlFor="siteName" className="text-sm font-medium">
-                  Site Name
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="siteName">Restaurant Name</Label>
                 <Input
                   id="siteName"
                   name="siteName"
-                  value={settings.siteName}
+                  value={siteSettings.siteName}
                   onChange={handleInputChange}
                 />
               </div>
               
-              <div className="space-y-1">
-                <label htmlFor="siteDescription" className="text-sm font-medium">
-                  Site Description
-                </label>
-                <Textarea
-                  id="siteDescription"
-                  name="siteDescription"
-                  value={settings.siteDescription}
-                  onChange={handleInputChange}
-                  rows={3}
-                />
+              <div className="space-y-2">
+                <Label htmlFor="siteDescription">Restaurant Description</Label>
+                <div className="rich-text-container">
+                  <ReactQuill
+                    theme="snow"
+                    value={siteSettings.siteDescription}
+                    onChange={(value) => handleRichTextChange('siteDescription', value)}
+                    style={{ height: '200px', marginBottom: '50px' }}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link', 'clean']
+                      ]
+                    }}
+                  />
+                </div>
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="notificationsEnabled"
-                  checked={settings.notificationsEnabled}
-                  onCheckedChange={(checked) => 
-                    handleToggleChange('notificationsEnabled', checked)
-                  }
-                />
-                <label 
-                  htmlFor="notificationsEnabled" 
-                  className="text-sm font-medium cursor-pointer"
-                >
-                  Enable order notifications
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="footerText">Footer Text</Label>
+                <div className="rich-text-container">
+                  <ReactQuill
+                    theme="snow"
+                    value={siteSettings.footerText}
+                    onChange={(value) => handleRichTextChange('footerText', value)}
+                    style={{ height: '150px', marginBottom: '50px' }}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline'],
+                        ['link', 'clean']
+                      ]
+                    }}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="appearance" className="space-y-4">
+        <TabsContent value="appearance" className="space-y-4 pt-4">
           <Card>
             <CardHeader>
               <CardTitle>Appearance Settings</CardTitle>
               <CardDescription>
-                Customize how your application looks
+                Customize the look and feel of your website.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  Background Image
-                </label>
-                <div className="flex flex-col space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex gap-2"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Upload Image
-                    </Button>
+              <div className="space-y-2">
+                <Label htmlFor="bgImage">Background Image</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
                     <Input
+                      id="bgImage"
                       type="file"
                       accept="image/*"
-                      className="hidden"
-                      ref={fileInputRef}
-                      onChange={handleImageUpload}
+                      onChange={handleImageChange}
                     />
-                    
-                    {bgImagePreview && (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={removeImage}
-                        className="text-destructive"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Remove
-                      </Button>
-                    )}
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Upload an image for your website background.
+                    </p>
                   </div>
                   
-                  {bgImagePreview ? (
-                    <div className="relative border rounded-md p-1 max-w-xs">
+                  {imagePreview && (
+                    <div>
+                      <p className="mb-2 font-medium">Preview:</p>
                       <img 
-                        src={bgImagePreview} 
-                        alt="Background Preview" 
-                        className="w-full h-auto rounded"
+                        src={imagePreview} 
+                        alt="Background preview" 
+                        className="max-h-40 object-cover rounded border"
                       />
-                    </div>
-                  ) : (
-                    <div className="border border-dashed rounded-md p-8 text-center flex flex-col items-center justify-center text-muted-foreground">
-                      <ImageIcon className="h-8 w-8 mb-2" />
-                      <p>No background image uploaded</p>
-                      <p className="text-xs">Recommended size: 1920x1080px</p>
                     </div>
                   )}
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 pt-2">
                 <Switch
-                  id="darkModeEnabled"
-                  checked={settings.darkModeEnabled}
-                  onCheckedChange={(checked) => 
-                    handleToggleChange('darkModeEnabled', checked)
-                  }
+                  id="darkMode"
+                  checked={siteSettings.darkModeEnabled}
+                  onCheckedChange={(checked) => handleSwitchChange('darkModeEnabled', checked)}
                 />
-                <label 
-                  htmlFor="darkModeEnabled" 
-                  className="text-sm font-medium cursor-pointer"
-                >
-                  Enable dark mode by default
-                </label>
+                <Label htmlFor="darkMode">Enable Dark Mode by Default</Label>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="contact" className="space-y-4">
+        <TabsContent value="contact" className="space-y-4 pt-4">
           <Card>
             <CardHeader>
               <CardTitle>Contact Information</CardTitle>
               <CardDescription>
-                Contact information displayed on your website
+                Update your contact details for customers.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <label htmlFor="contactEmail" className="text-sm font-medium">
-                  Email Address
-                </label>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Email Address</Label>
                 <Input
                   id="contactEmail"
                   name="contactEmail"
                   type="email"
-                  value={settings.contactEmail}
+                  value={siteSettings.contactEmail}
                   onChange={handleInputChange}
                 />
               </div>
               
-              <div className="space-y-1">
-                <label htmlFor="contactPhone" className="text-sm font-medium">
-                  Phone Number
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Phone Number</Label>
                 <Input
                   id="contactPhone"
                   name="contactPhone"
-                  value={settings.contactPhone}
+                  value={siteSettings.contactPhone}
                   onChange={handleInputChange}
                 />
               </div>
               
-              <div className="space-y-1">
-                <label htmlFor="contactAddress" className="text-sm font-medium">
-                  Address
-                </label>
-                <Textarea
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="contactAddress">Address</Label>
+                <Input
                   id="contactAddress"
                   name="contactAddress"
-                  value={settings.contactAddress}
+                  value={siteSettings.contactAddress}
                   onChange={handleInputChange}
-                  rows={3}
                 />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="content" className="space-y-4">
+        <TabsContent value="notifications" className="space-y-4 pt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Content Settings</CardTitle>
+              <CardTitle>Notification Settings</CardTitle>
               <CardDescription>
-                Edit website content and text
+                Configure how you want to be notified about new orders.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-1">
-                <label htmlFor="headerContent" className="text-sm font-medium block mb-2">
-                  Header Content
-                </label>
-                <div className="border rounded-md">
-                  <ReactQuill
-                    theme="snow"
-                    value={settings.siteDescription}
-                    onChange={(value) => handleRichTextChange('siteDescription', value)}
-                    modules={quillModules}
-                    formats={quillFormats}
-                    placeholder="Edit header content..."
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  This content will be displayed in the header section of your homepage.
-                </p>
-              </div>
-              
-              <div className="space-y-1">
-                <label htmlFor="footerText" className="text-sm font-medium block mb-2">
-                  Footer Content
-                </label>
-                <div className="border rounded-md">
-                  <ReactQuill
-                    theme="snow"
-                    value={settings.footerText}
-                    onChange={(value) => handleRichTextChange('footerText', value)}
-                    modules={quillModules}
-                    formats={quillFormats}
-                    placeholder="Edit footer content..."
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  This content will be displayed in the footer section of your homepage.
-                </p>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="notifications"
+                  checked={siteSettings.notificationsEnabled}
+                  onCheckedChange={(checked) => handleSwitchChange('notificationsEnabled', checked)}
+                />
+                <Label htmlFor="notifications">Enable Order Notifications</Label>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
       
-      <div className="flex justify-end pt-4">
-        <Button onClick={handleSaveSettings} className="min-w-[120px]">
+      <div className="flex justify-end">
+        <Button type="submit" className="bg-food-primary hover:bg-food-primary/90">
           Save Settings
         </Button>
       </div>
-    </div>
+    </form>
   );
 };
 

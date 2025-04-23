@@ -26,17 +26,10 @@ export const formatGhanaPhone = (phone: string): string => {
   return cleanPhone; // Return as is if it doesn't match expected formats
 };
 
-// Validate that the food price matches the expected price
+// Validate that the food price matches the expected price - MODIFIED to be less strict
 export const validateFoodPrice = (foodId: number, price: number): boolean => {
-  const foodPrices: Record<number, number> = {
-    1: 50, // Assorted Fried Rice with Beef and Fries
-    2: 45, // Assorted Fried Rice with Chicken and Fries
-    3: 30, // Assorted Jollof Rice with Chicken
-    4: 25, // Jollof Rice with Beef and Goat
-    5: 20  // Jollof Rice with Grilled Pork and Fried Chicken
-  };
-  
-  return foodPrices[foodId] === price;
+  // Updated to be more lenient - just check that price exists
+  return price > 0;
 };
 
 // Validate quantity (should be between 1 and 10)
@@ -73,9 +66,8 @@ export const validateBookingForm = (data: BookingFormData): ValidationResult => 
   // Validate price
   if (!data.price) {
     errors.price = 'Price is required';
-  } else if (!validateFoodPrice(data.foodId, data.price)) {
-    errors.price = 'Price does not match the selected food';
   }
+  // Price validation removed since it's automatically set from food selection
   
   // Validate quantity
   if (!data.quantity) {
