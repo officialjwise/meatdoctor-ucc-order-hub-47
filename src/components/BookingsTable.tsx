@@ -26,9 +26,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { BellRing } from 'lucide-react';
 import { Booking, updateBooking, deleteBooking, getBookings } from '@/lib/storage';
 import { showSuccessAlert, showErrorAlert, showConfirmationAlert } from '@/lib/alerts';
-import { initNotificationSound, checkForNewOrders } from '@/lib/notifications';
+import { initNotificationSound, playNotificationSound, checkForNewOrders } from '@/lib/notifications';
+import { toast } from "sonner";
 
 interface BookingsTableProps {
   bookings: Booking[];
@@ -47,6 +50,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   const [dateFilter, setDateFilter] = useState<string>("");
   const [editedStatus, setEditedStatus] = useState<string>("");
   const [previousBookingsCount, setPreviousBookingsCount] = useState(0);
+  const [hasNewNotification, setHasNewNotification] = useState(false);
   
   // Initialize notification system
   useEffect(() => {
@@ -56,8 +60,30 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   
   // Check for new bookings
   useEffect(() => {
-    if (previousBookingsCount > 0) {
-      checkForNewOrders(bookings.length, previousBookingsCount);
+    if (previousBookingsCount > 0 && bookings.length > previousBookingsCount) {
+      // Play sound notification
+      playNotificationSound();
+      
+      // Show visual notification
+      setHasNewNotification(true);
+      
+      // Show toast notification
+      toast(
+        <div className="flex items-center gap-2">
+          <BellRing className="h-4 w-4" />
+          <span>New order received!</span>
+        </div>,
+        {
+          description: "You have a new order to process.",
+          action: {
+            label: "View",
+            onClick: () => {
+              setHasNewNotification(false);
+              setStatusFilter("Pending");
+            },
+          },
+        }
+      );
     }
     setPreviousBookingsCount(bookings.length);
   }, [bookings.length]);
@@ -146,6 +172,33 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   
   return (
     <div className="space-y-4">
+      {/* Header with notification bell */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Order Management</h2>
+        <div className="relative">
+          {hasNewNotification && (
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center"
+            >
+              !
+            </Badge>
+          )}
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className={hasNewNotification ? "animate-pulse" : ""}
+            onClick={() => {
+              setHasNewNotification(false);
+              setStatusFilter("Pending");
+            }}
+          >
+            <BellRing className="h-4 w-4" />
+            <span className="sr-only">View new notifications</span>
+          </Button>
+        </div>
+      </div>
+      
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="w-full sm:w-1/2">

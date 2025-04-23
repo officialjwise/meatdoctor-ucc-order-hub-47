@@ -1,13 +1,10 @@
 
-import { showToast } from './alerts';
-
-// Audio element for notification sound
+// Sound notification system
 let notificationSound: HTMLAudioElement | null = null;
 
-// Initialize notification sound
+// Initialize the notification sound
 export const initNotificationSound = () => {
-  // Create audio element if it doesn't exist
-  if (!notificationSound) {
+  if (typeof window !== 'undefined' && !notificationSound) {
     notificationSound = new Audio('/notification-sound.mp3');
     notificationSound.preload = 'auto';
   }
@@ -18,39 +15,15 @@ export const playNotificationSound = () => {
   if (notificationSound) {
     notificationSound.currentTime = 0;
     notificationSound.play().catch(error => {
-      console.error('Failed to play notification sound:', error);
+      console.error('Error playing notification sound:', error);
     });
   }
 };
 
-// Show notification with sound
-export const showNotification = (title: string, options: { 
-  sound?: boolean;
-  icon?: 'success' | 'error' | 'warning' | 'info';
-} = {}) => {
-  const { sound = true, icon = 'info' } = options;
-  
-  if (sound) {
+// Check for new orders and trigger notification
+export const checkForNewOrders = (currentCount: number, previousCount: number) => {
+  if (currentCount > previousCount) {
     playNotificationSound();
-  }
-  
-  return showToast(title, icon);
-};
-
-// Check for new orders and notify
-export const checkForNewOrders = (currentOrdersCount: number, previousOrdersCount: number) => {
-  if (currentOrdersCount > previousOrdersCount) {
-    const newOrdersCount = currentOrdersCount - previousOrdersCount;
-    const message = newOrdersCount === 1 
-      ? 'A new order has been placed!' 
-      : `${newOrdersCount} new orders have been placed!`;
-    
-    // Use SweetAlert instead of toast for more prominence
-    import('./alerts').then(({ showSuccessAlert }) => {
-      showSuccessAlert(message, 'New order notification');
-      playNotificationSound();
-    });
-    
     return true;
   }
   return false;

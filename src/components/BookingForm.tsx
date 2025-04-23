@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,9 +70,7 @@ const BookingForm = () => {
   const [paymentModeItems, setPaymentModeItems] = useState<PaymentMode[]>([]);
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
   const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
-  const [hoveredFoodId, setHoveredFoodId] = useState<number | null>(null);
   const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
   
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
@@ -94,13 +93,6 @@ const BookingForm = () => {
       .map(mode => mode.name)
     );
   }, []);
-
-  useEffect(() => {
-    if (selectTriggerRef.current && hoveredFoodId !== null) {
-      const rect = selectTriggerRef.current.getBoundingClientRect();
-      setDropdownPosition({ top: rect.top + window.scrollY, left: rect.right + 8 + window.scrollX });
-    }
-  }, [hoveredFoodId]);
 
   useEffect(() => {
     if (formData.foodId) {
@@ -271,62 +263,18 @@ const BookingForm = () => {
                   <SelectItem value="0" disabled>No food items available</SelectItem>
                 ) : (
                   foodItems.map((food) => (
-                    <div
-                      key={food.id}
-                      onMouseEnter={() => setHoveredFoodId(food.id)}
-                      onMouseLeave={() => setHoveredFoodId(null)}
-                    >
-                      <SelectItem value={food.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          {food.imageUrl &&
-                            <img src={food.imageUrl} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
-                          }
-                          <span>{food.name} (GHS {food.price})</span>
-                        </div>
-                      </SelectItem>
-                    </div>
+                    <SelectItem key={food.id} value={food.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        {food.imageUrl &&
+                          <img src={food.imageUrl} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
+                        }
+                        <span>{food.name} (GHS {food.price})</span>
+                      </div>
+                    </SelectItem>
                   ))
                 )}
               </SelectContent>
             </Select>
-
-            {hoveredFoodId && (() => {
-              const food = foodItems.find(f => f.id === hoveredFoodId && f.imageUrl);
-              if (food && dropdownPosition) {
-                return (
-                  <div
-                    className={`fixed transition-all duration-150 z-[99] shadow-lg rounded-lg 
-                        ${theme === "dark"
-                          ? "bg-gray-900 border border-gray-700 text-white"
-                          : "bg-white border border-gray-300"
-                        }`}
-                    style={{
-                      top: `${dropdownPosition.top}px`,
-                      left: `${dropdownPosition.left}px`,
-                      minWidth: 160,
-                      padding: 12,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center"
-                    }}
-                  >
-                    <img
-                      src={food.imageUrl}
-                      alt={food.name}
-                      className="h-24 w-24 object-cover rounded mb-2 border cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setGalleryImages([food.imageUrl]);
-                        setGalleryOpen(true);
-                      }}
-                    />
-                    <div className={`font-semibold text-sm ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>{food.name}</div>
-                    <div className={`text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>GHS {food.price}</div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
           </div>
           {errors.foodId && <p className="text-red-500 text-sm">{errors.foodId}</p>}
         </div>
