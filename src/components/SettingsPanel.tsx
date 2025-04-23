@@ -7,8 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from "sonner";
 import { getSettings, saveSettings, Settings as SettingsType } from '@/lib/storage';
+import { useTheme } from '@/hooks/use-theme';
 
 const SettingsPanel = () => {
+  const { theme } = useTheme();
   const [settings, setSettings] = useState<SettingsType>({
     backgroundImage: '',
     email: {
@@ -22,6 +24,7 @@ const SettingsPanel = () => {
       clientSecret: '',
       senderId: '',
     },
+    theme: theme, // Include the theme property
   });
   
   const [loading, setLoading] = useState(false);
