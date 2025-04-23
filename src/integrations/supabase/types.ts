@@ -9,7 +9,131 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      foods: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_available: boolean | null
+          name: string
+          price: number
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_available?: boolean | null
+          name: string
+          price: number
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_available?: boolean | null
+          name?: string
+          price?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          additional_info: string | null
+          created_at: string | null
+          delivery_time: string
+          drink: string | null
+          food_id: string | null
+          id: string
+          location: string
+          payment_mode: string
+          phone_number: string
+          quantity: number
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_info?: string | null
+          created_at?: string | null
+          delivery_time: string
+          drink?: string | null
+          food_id?: string | null
+          id?: string
+          location: string
+          payment_mode: string
+          phone_number: string
+          quantity: number
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_info?: string | null
+          created_at?: string | null
+          delivery_time?: string
+          drink?: string | null
+          food_id?: string | null
+          id?: string
+          location?: string
+          payment_mode?: string
+          phone_number?: string
+          quantity?: number
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          created_at: string | null
+          email_api_key: string | null
+          email_from: string | null
+          email_from_name: string | null
+          id: string
+          sms_client_id: string | null
+          sms_client_secret: string | null
+          sms_sender_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_api_key?: string | null
+          email_from?: string | null
+          email_from_name?: string | null
+          id?: string
+          sms_client_id?: string | null
+          sms_client_secret?: string | null
+          sms_sender_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_api_key?: string | null
+          email_from?: string | null
+          email_from_name?: string | null
+          id?: string
+          sms_client_id?: string | null
+          sms_client_secret?: string | null
+          sms_sender_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
