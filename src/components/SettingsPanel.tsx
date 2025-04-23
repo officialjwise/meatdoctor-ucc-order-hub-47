@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,8 +5,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import { getSiteSettings, updateSiteSettings, SiteSettings } from '@/lib/storage';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 import Sweetalert2 from 'sweetalert2';
@@ -27,8 +24,14 @@ const SettingsPanel = () => {
   
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [ReactQuill, setReactQuill] = useState<any>(null);
   
   useEffect(() => {
+    import('react-quill').then((module) => {
+      setReactQuill(() => module.default);
+      import('react-quill/dist/quill.snow.css');
+    });
+    
     const settings = getSiteSettings();
     if (settings) {
       setSiteSettings(settings);
@@ -56,7 +59,6 @@ const SettingsPanel = () => {
       const file = e.target.files[0];
       setImageFile(file);
       
-      // Create a preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -69,7 +71,6 @@ const SettingsPanel = () => {
     e.preventDefault();
     
     try {
-      // If there's a new image file, convert it to base64 and save it
       if (imageFile) {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -83,7 +84,6 @@ const SettingsPanel = () => {
         };
         reader.readAsDataURL(imageFile);
       } else {
-        // Just save the current settings
         updateSiteSettings(siteSettings);
         showSuccessAlert('Success!', 'Settings updated successfully.');
       }
@@ -125,39 +125,47 @@ const SettingsPanel = () => {
               <div className="space-y-2">
                 <Label htmlFor="siteDescription">Restaurant Description</Label>
                 <div className="rich-text-container">
-                  <ReactQuill
-                    theme="snow"
-                    value={siteSettings.siteDescription}
-                    onChange={(value) => handleRichTextChange('siteDescription', value)}
-                    style={{ height: '200px', marginBottom: '50px' }}
-                    modules={{
-                      toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link', 'clean']
-                      ]
-                    }}
-                  />
+                  {ReactQuill ? (
+                    <ReactQuill
+                      theme="snow"
+                      value={siteSettings.siteDescription}
+                      onChange={(value) => handleRichTextChange('siteDescription', value)}
+                      style={{ height: '200px', marginBottom: '50px' }}
+                      modules={{
+                        toolbar: [
+                          [{ 'header': [1, 2, 3, false] }],
+                          ['bold', 'italic', 'underline', 'strike'],
+                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                          ['link', 'clean']
+                        ]
+                      }}
+                    />
+                  ) : (
+                    <div className="p-4 border rounded bg-gray-50">Loading editor...</div>
+                  )}
                 </div>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="footerText">Footer Text</Label>
                 <div className="rich-text-container">
-                  <ReactQuill
-                    theme="snow"
-                    value={siteSettings.footerText}
-                    onChange={(value) => handleRichTextChange('footerText', value)}
-                    style={{ height: '150px', marginBottom: '50px' }}
-                    modules={{
-                      toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline'],
-                        ['link', 'clean']
-                      ]
-                    }}
-                  />
+                  {ReactQuill ? (
+                    <ReactQuill
+                      theme="snow"
+                      value={siteSettings.footerText}
+                      onChange={(value) => handleRichTextChange('footerText', value)}
+                      style={{ height: '150px', marginBottom: '50px' }}
+                      modules={{
+                        toolbar: [
+                          [{ 'header': [1, 2, 3, false] }],
+                          ['bold', 'italic', 'underline'],
+                          ['link', 'clean']
+                        ]
+                      }}
+                    />
+                  ) : (
+                    <div className="p-4 border rounded bg-gray-50">Loading editor...</div>
+                  )}
                 </div>
               </div>
             </CardContent>

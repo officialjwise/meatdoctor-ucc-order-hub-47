@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admins: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          password_hash: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          password_hash: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          password_hash?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       foods: {
         Row: {
           category: string | null
@@ -47,45 +71,48 @@ export type Database = {
       }
       orders: {
         Row: {
-          additional_info: string | null
+          additional_notes: string | null
           created_at: string | null
+          delivery_location: string
           delivery_time: string
           drink: string | null
           food_id: string | null
           id: string
-          location: string
+          order_id: string
+          order_status: string
           payment_mode: string
           phone_number: string
           quantity: number
-          status: string | null
           updated_at: string | null
         }
         Insert: {
-          additional_info?: string | null
+          additional_notes?: string | null
           created_at?: string | null
+          delivery_location: string
           delivery_time: string
           drink?: string | null
           food_id?: string | null
           id?: string
-          location: string
+          order_id: string
+          order_status?: string
           payment_mode: string
           phone_number: string
           quantity: number
-          status?: string | null
           updated_at?: string | null
         }
         Update: {
-          additional_info?: string | null
+          additional_notes?: string | null
           created_at?: string | null
+          delivery_location?: string
           delivery_time?: string
           drink?: string | null
           food_id?: string | null
           id?: string
-          location?: string
+          order_id?: string
+          order_status?: string
           payment_mode?: string
           phone_number?: string
           quantity?: number
-          status?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -98,38 +125,53 @@ export type Database = {
           },
         ]
       }
-      settings: {
+      otp_tokens: {
         Row: {
           created_at: string | null
-          email_api_key: string | null
-          email_from: string | null
-          email_from_name: string | null
+          email: string
+          expires_at: string
           id: string
-          sms_client_id: string | null
-          sms_client_secret: string | null
-          sms_sender_id: string | null
-          updated_at: string | null
+          otp: string
         }
         Insert: {
           created_at?: string | null
-          email_api_key?: string | null
-          email_from?: string | null
-          email_from_name?: string | null
+          email: string
+          expires_at: string
           id?: string
-          sms_client_id?: string | null
-          sms_client_secret?: string | null
-          sms_sender_id?: string | null
-          updated_at?: string | null
+          otp: string
         }
         Update: {
           created_at?: string | null
-          email_api_key?: string | null
-          email_from?: string | null
-          email_from_name?: string | null
+          email?: string
+          expires_at?: string
           id?: string
-          sms_client_id?: string | null
-          sms_client_secret?: string | null
-          sms_sender_id?: string | null
+          otp?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          background_image_url: string | null
+          created_at: string | null
+          email_settings: Json | null
+          id: string
+          sms_settings: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          background_image_url?: string | null
+          created_at?: string | null
+          email_settings?: Json | null
+          id?: string
+          sms_settings?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          background_image_url?: string | null
+          created_at?: string | null
+          email_settings?: Json | null
+          id?: string
+          sms_settings?: Json | null
           updated_at?: string | null
         }
         Relationships: []
