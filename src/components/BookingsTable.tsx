@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -26,8 +26,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Booking, updateBooking, deleteBooking } from '@/lib/storage';
-import { toast } from "sonner";
+import { Booking, updateBooking, deleteBooking, getBookings } from '@/lib/storage';
+import { showSuccessAlert, showErrorAlert, showConfirmationAlert } from '@/lib/alerts';
+import { initNotificationSound, checkForNewOrders } from '@/lib/notifications';
 
 interface BookingsTableProps {
   bookings: Booking[];
@@ -45,6 +46,33 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [editedStatus, setEditedStatus] = useState<string>("");
+  const [previousBookingsCount, setPreviousBookingsCount] = useState(0);
+  
+  // Initialize notification system
+  useEffect(() => {
+    initNotificationSound();
+    setPreviousBookingsCount(bookings.length);
+  }, []);
+  
+  // Check for new bookings
+  useEffect(() => {
+    if (previousBookingsCount > 0) {
+      checkForNewOrders(bookings.length, previousBookingsCount);
+    }
+    setPreviousBookingsCount(bookings.length);
+  }, [bookings.length]);
+  
+  // Poll for new bookings every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentBookings = getBookings();
+      if (currentBookings.length > bookings.length) {
+        onBookingsUpdate();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [bookings.length, onBookingsUpdate]);
   
   // Filter bookings
   const filteredBookings = bookings.filter(booking => {
@@ -75,26 +103,29 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
     setEditModalOpen(true);
   };
   
-  const handleDeleteBooking = (booking: Booking) => {
+  const handleDeleteBooking = async (booking: Booking) => {
     setSelectedBooking(booking);
-    setDeleteModalOpen(true);
+    
+    const result = await showConfirmationAlert(
+      'Delete Booking',
+      `Are you sure you want to delete Order ID: ${booking.id}? This action cannot be undone.`,
+      'Yes, Delete',
+      'Cancel'
+    );
+    
+    if (result.isConfirmed) {
+      deleteBooking(booking.id);
+      showSuccessAlert('Success', 'Booking deleted successfully');
+      onBookingsUpdate();
+    }
   };
   
-  const saveBookingEdit = () => {
+  const saveBookingEdit = async () => {
     if (!selectedBooking) return;
     
     updateBooking(selectedBooking.id, { status: editedStatus as any });
-    toast.success('Booking updated successfully');
+    showSuccessAlert('Success', 'Booking status updated successfully');
     setEditModalOpen(false);
-    onBookingsUpdate();
-  };
-  
-  const confirmDeleteBooking = () => {
-    if (!selectedBooking) return;
-    
-    deleteBooking(selectedBooking.id);
-    toast.success('Booking deleted successfully');
-    setDeleteModalOpen(false);
     onBookingsUpdate();
   };
   
@@ -174,7 +205,22 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
               filteredBookings.map((booking) => (
                 <TableRow key={booking.id}>
                   <TableCell className="font-medium">{booking.id}</TableCell>
-                  <TableCell>{booking.food.name.length > 20 ? `${booking.food.name.slice(0, 20)}...` : booking.food.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {booking.food.imageUrl && (
+                        <img 
+                          src={booking.food.imageUrl} 
+                          alt={booking.food.name} 
+                          className="h-8 w-8 rounded-full object-cover border"
+                        />
+                      )}
+                      <span>
+                        {booking.food.name.length > 20 
+                          ? `${booking.food.name.slice(0, 20)}...` 
+                          : booking.food.name}
+                      </span>
+                    </div>
+                  </TableCell>
                   <TableCell>{booking.location}</TableCell>
                   <TableCell>{booking.phoneNumber}</TableCell>
                   <TableCell>
@@ -238,6 +284,16 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           {selectedBooking && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
+                {selectedBooking.food.imageUrl && (
+                  <div className="col-span-2 flex justify-center mb-2">
+                    <img 
+                      src={selectedBooking.food.imageUrl} 
+                      alt={selectedBooking.food.name} 
+                      className="h-24 w-auto object-cover rounded-md shadow-sm" 
+                    />
+                  </div>
+                )}
+                
                 <div className="font-medium">Food:</div>
                 <div>{selectedBooking.food.name}</div>
                 
@@ -324,24 +380,6 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancel</Button>
             <Button onClick={saveBookingEdit}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete Confirmation Modal */}
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete Order ID: {selectedBooking?.id}?
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={confirmDeleteBooking}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

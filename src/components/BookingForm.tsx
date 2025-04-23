@@ -41,6 +41,8 @@ import {
 } from '@/lib/validation';
 import OrderSummary from './OrderSummary';
 import { useTheme } from '@/hooks/use-theme';
+import ImageGallery from './ImageGallery';
+import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
 const BookingForm = () => {
   const { theme } = useTheme();
@@ -70,7 +72,10 @@ const BookingForm = () => {
   const [hoveredFoodId, setHoveredFoodId] = useState<number | null>(null);
   const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
-
+  
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  
   useEffect(() => {
     const foods = getFoods();
     setFoodItems(foods);
@@ -96,6 +101,22 @@ const BookingForm = () => {
       setDropdownPosition({ top: rect.top + window.scrollY, left: rect.right + 8 + window.scrollX });
     }
   }, [hoveredFoodId]);
+
+  useEffect(() => {
+    if (formData.foodId) {
+      const food = foodItems.find(f => f.id === formData.foodId);
+      if (food) {
+        setFormData(prev => ({ ...prev, price: food.price }));
+        setSelectedFood(food);
+        
+        if (food.imageUrl) {
+          setGalleryImages([food.imageUrl]);
+        } else {
+          setGalleryImages([]);
+        }
+      }
+    }
+  }, [formData.foodId, foodItems]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -155,6 +176,7 @@ const BookingForm = () => {
     
     if (!validation.valid) {
       setErrors(validation.errors);
+      showErrorAlert('Validation Error', 'Please check the form for errors.');
       return;
     }
     
@@ -191,7 +213,7 @@ const BookingForm = () => {
         setLoading(false);
       } catch (error) {
         console.error('Error saving booking:', error);
-        toast.error('An error occurred while processing your order. Please try again.');
+        showErrorAlert('Order Error', 'An error occurred while processing your order. Please try again.');
         setLoading(false);
       }
     }, 1000);
@@ -212,6 +234,12 @@ const BookingForm = () => {
       deliveryTime: ''
     });
     setSelectedFood(null);
+  };
+
+  const openGallery = () => {
+    if (galleryImages.length > 0) {
+      setGalleryOpen(true);
+    }
   };
 
   const formClasses = theme === "dark" 
@@ -267,14 +295,14 @@ const BookingForm = () => {
               if (food && dropdownPosition) {
                 return (
                   <div
-                    className={`absolute transition-all duration-150 z-[99] shadow-lg rounded-lg 
+                    className={`fixed transition-all duration-150 z-[99] shadow-lg rounded-lg 
                         ${theme === "dark"
                           ? "bg-gray-900 border border-gray-700 text-white"
                           : "bg-white border border-gray-300"
                         }`}
                     style={{
-                      top: -8,
-                      left: "calc(100% + 18px)",
+                      top: `${dropdownPosition.top}px`,
+                      left: `${dropdownPosition.left}px`,
                       minWidth: 160,
                       padding: 12,
                       display: "flex",
@@ -285,7 +313,12 @@ const BookingForm = () => {
                     <img
                       src={food.imageUrl}
                       alt={food.name}
-                      className="h-24 w-24 object-cover rounded mb-2 border"
+                      className="h-24 w-24 object-cover rounded mb-2 border cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGalleryImages([food.imageUrl]);
+                        setGalleryOpen(true);
+                      }}
                     />
                     <div className={`font-semibold text-sm ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>{food.name}</div>
                     <div className={`text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>GHS {food.price}</div>
@@ -435,16 +468,17 @@ const BookingForm = () => {
         </div>
 
         {selectedFood && selectedFood.imageUrl && (
-          <div className={theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"}>
+          <div className={`${theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"} cursor-pointer`} onClick={openGallery}>
             <h3 className="text-md font-medium mb-2">Selected Food</h3>
             <div className="flex justify-center mb-2">
               <img 
                 src={selectedFood.imageUrl} 
                 alt={selectedFood.name} 
-                className="h-32 w-auto object-cover rounded-md" 
+                className="h-32 w-auto object-cover rounded-md hover:opacity-90 transition-opacity" 
               />
             </div>
             <p className="text-center font-medium">{selectedFood.name}</p>
+            <p className="text-center text-sm text-muted-foreground">(Click to view larger image)</p>
           </div>
         )}
 
@@ -502,6 +536,12 @@ const BookingForm = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ImageGallery 
+        images={galleryImages} 
+        isOpen={galleryOpen} 
+        onClose={() => setGalleryOpen(false)} 
+      />
     </div>
   );
 };
