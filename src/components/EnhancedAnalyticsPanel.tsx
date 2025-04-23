@@ -1,6 +1,9 @@
 
 import React, { useState } from 'react';
-import { Bar, Line, Pie } from 'recharts';
+import { 
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -182,28 +185,26 @@ const EnhancedAnalyticsPanel = () => {
                 <CardTitle>Orders by Status</CardTitle>
               </CardHeader>
               <CardContent className="pt-2">
-                <ChartContainer className="aspect-square" config={{
-                  Pending: { color: chartColors.status.Pending },
-                  Confirmed: { color: chartColors.status.Confirmed },
-                  Delivered: { color: chartColors.status.Delivered },
-                  Cancelled: { color: chartColors.status.Cancelled },
-                }}>
-                  <Pie
-                    data={getStatusData()}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {getStatusData().map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={chartColors.status[entry.name] || '#8884d8'} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </ChartContainer>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={getStatusData()}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {getStatusData().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={chartColors.status[entry.name] || '#8884d8'} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
             
@@ -212,21 +213,20 @@ const EnhancedAnalyticsPanel = () => {
                 <CardTitle>Popular Food Items</CardTitle>
               </CardHeader>
               <CardContent className="pt-2">
-                <ChartContainer className="aspect-square" config={{
-                  count: { color: chartColors.food }
-                }}>
-                  <Bar
-                    data={getFoodData()}
-                    dataKey="count"
-                    fill={chartColors.food}
-                    radius={4}
-                    barSize={40}
-                  >
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={getFoodData()}>
+                    <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
-                  </Bar>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </ChartContainer>
+                    <Tooltip />
+                    <Bar 
+                      dataKey="count" 
+                      fill={chartColors.food} 
+                      radius={[4, 4, 0, 0]}
+                      barSize={40}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
@@ -238,18 +238,14 @@ const EnhancedAnalyticsPanel = () => {
               <CardTitle>Daily Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={{
-                orders: { color: chartColors.orders },
-                revenue: { color: chartColors.revenue }
-              }}>
-                <Line
-                  data={getWeeklyData()}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={getWeeklyData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis yAxisId="left" />
                   <YAxis yAxisId="right" orientation="right" />
                   <Tooltip />
+                  <Legend />
                   <Line 
                     yAxisId="left"
                     type="monotone" 
@@ -265,8 +261,8 @@ const EnhancedAnalyticsPanel = () => {
                     stroke={chartColors.revenue} 
                     strokeWidth={2}
                   />
-                </Line>
-              </ChartContainer>
+                </LineChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </TabsContent>
@@ -277,18 +273,14 @@ const EnhancedAnalyticsPanel = () => {
               <CardTitle>Monthly Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={{
-                orders: { color: chartColors.orders },
-                revenue: { color: chartColors.revenue }
-              }}>
-                <Line
-                  data={getMonthlyData()}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={getMonthlyData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis yAxisId="left" />
                   <YAxis yAxisId="right" orientation="right" />
                   <Tooltip />
+                  <Legend />
                   <Line 
                     yAxisId="left"
                     type="monotone" 
@@ -304,8 +296,8 @@ const EnhancedAnalyticsPanel = () => {
                     stroke={chartColors.revenue} 
                     strokeWidth={2}
                   />
-                </Line>
-              </ChartContainer>
+                </LineChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </TabsContent>
@@ -316,13 +308,9 @@ const EnhancedAnalyticsPanel = () => {
               <CardTitle>Food Items Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={{
-                count: { color: chartColors.food }
-              }}>
-                <Bar
-                  data={getFoodData()}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={getFoodData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
@@ -332,8 +320,8 @@ const EnhancedAnalyticsPanel = () => {
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   />
-                </Bar>
-              </ChartContainer>
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </TabsContent>

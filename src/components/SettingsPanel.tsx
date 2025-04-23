@@ -18,7 +18,8 @@ const SettingsPanel = () => {
       password: '',
     },
     sms: {
-      apiKey: '',
+      clientId: '',
+      clientSecret: '',
       senderId: '',
     },
   });
@@ -105,7 +106,7 @@ const SettingsPanel = () => {
   };
   
   const saveSmsSettings = () => {
-    if (!settings.sms.apiKey || !settings.sms.senderId) {
+    if (!settings.sms.clientId || !settings.sms.senderId) {
       toast.error('Please fill all required fields');
       return;
     }
@@ -143,13 +144,13 @@ const SettingsPanel = () => {
   };
   
   const testSmsConnection = () => {
-    if (!settings.sms.apiKey || !settings.sms.senderId) {
+    if (!settings.sms.clientId || !settings.sms.senderId) {
       toast.error('Please fill all required SMS settings first');
       return;
     }
     
     console.log('Testing SMS API with settings:', {
-      apiKey: `${settings.sms.apiKey.substring(0, 4)}...`, // Only show first 4 chars of API key
+      clientId: `${settings.sms.clientId.substring(0, 4)}...`, // Only show first 4 chars of client ID
       senderId: settings.sms.senderId,
       message: 'This is a test message from MeatDoctorUcc',
       to: '+233XXXXXXXXX'
@@ -281,14 +282,29 @@ const SettingsPanel = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="smsApiKey">API Key</Label>
+                <Label htmlFor="smsClientId">Client ID</Label>
                 <Input
-                  id="smsApiKey"
-                  name="apiKey"
-                  value={settings.sms.apiKey}
+                  id="smsClientId"
+                  name="clientId"
+                  value={settings.sms.clientId}
                   onChange={handleSmsSettingChange}
-                  placeholder="Enter your Hubtel API Key"
+                  placeholder="Enter your Hubtel Client ID"
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="smsClientSecret">Client Secret</Label>
+                <Input
+                  id="smsClientSecret"
+                  name="clientSecret"
+                  type="password"
+                  value={settings.sms.clientSecret}
+                  onChange={handleSmsSettingChange}
+                  placeholder="••••••••"
+                />
+                <p className="text-xs text-gray-500">
+                  Your client secret is stored securely and never shared
+                </p>
               </div>
               
               <div className="space-y-2">

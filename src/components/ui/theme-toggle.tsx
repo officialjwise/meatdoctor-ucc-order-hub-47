@@ -8,7 +8,7 @@ export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <Button variant="outline" size="icon" onClick={toggleTheme}>
+    <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
       {theme === "light" ? (
         <Moon className="h-[1.2rem] w-[1.2rem]" />
       ) : (
