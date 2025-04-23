@@ -8,8 +8,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { toast } from "sonner";
 import { Search } from 'lucide-react';
+import { useTheme } from '@/hooks/use-theme';
 
 const Index = () => {
+  const { theme } = useTheme();
   const [backgroundImage, setBackgroundImage] = useState<string>('');
   const [orderId, setOrderId] = useState<string>('');
   const [showOrderStatus, setShowOrderStatus] = useState(false);
@@ -43,23 +45,40 @@ const Index = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Pending':
-        return 'text-amber-500';
+        return theme === 'dark' ? 'text-amber-400' : 'text-amber-500';
       case 'Confirmed':
-        return 'text-blue-500';
+        return theme === 'dark' ? 'text-blue-400' : 'text-blue-500';
       case 'Delivered':
-        return 'text-green-500';
+        return theme === 'dark' ? 'text-green-400' : 'text-green-500';
       case 'Cancelled':
-        return 'text-red-500';
+        return theme === 'dark' ? 'text-red-400' : 'text-red-500';
       default:
-        return 'text-gray-500';
+        return theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
     }
   };
+  
+  // Define classes based on theme
+  const trackingPanelClass = theme === "dark" 
+    ? "bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-gray-700 text-white" 
+    : "bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg dark:bg-gray-800/90 dark:text-white";
+  
+  const contactPanelClass = theme === "dark" 
+    ? "bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-gray-700 text-white" 
+    : "bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg dark:bg-gray-800/90 dark:text-white";
+  
+  const cardClass = theme === "dark"
+    ? "mt-4 bg-gray-700 border-gray-600"
+    : "mt-4";
+    
+  const inputClass = theme === "dark"
+    ? "bg-gray-900 border-gray-700 text-white"
+    : "";
   
   return (
     <div 
       className="min-h-screen p-4 md:p-8 booking-bg flex flex-col items-center"
       style={{
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${backgroundImage})`,
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url(${backgroundImage})`,
       }}
     >
       <div className="w-full max-w-6xl mx-auto">
@@ -79,17 +98,17 @@ const Index = () => {
           
           {/* Order Tracking */}
           <div className="w-full md:w-1/3 space-y-6">
-            <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg dark:bg-gray-800/90 dark:text-white">
-              <h2 className="text-2xl font-bold text-food-dark dark:text-white mb-4">Track Your Order</h2>
+            <div className={trackingPanelClass}>
+              <h2 className="text-2xl font-bold mb-4">Track Your Order</h2>
               <form onSubmit={handleOrderSearch} className="space-y-4">
                 <div className="flex space-x-2">
                   <Input 
                     placeholder="Enter your Order ID" 
                     value={orderId}
                     onChange={(e) => setOrderId(e.target.value)}
-                    className="flex-1"
+                    className={`flex-1 ${inputClass}`}
                   />
-                  <Button type="submit">
+                  <Button type="submit" variant={theme === "dark" ? "outline" : "default"}>
                     <Search className="h-4 w-4 mr-2" />
                     Track
                   </Button>
@@ -97,7 +116,7 @@ const Index = () => {
               </form>
               
               {showOrderStatus && orderDetails && (
-                <Card className="mt-4">
+                <Card className={cardClass}>
                   <CardContent className="p-4">
                     <h3 className="font-semibold mb-2">Order #{orderDetails.id}</h3>
                     <div className="space-y-2 text-sm">
@@ -117,10 +136,12 @@ const Index = () => {
               )}
             </div>
             
-            <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg dark:bg-gray-800/90 dark:text-white">
-              <h2 className="text-xl font-bold text-food-dark dark:text-white mb-2">Contact Us</h2>
-              <p className="text-gray-700 dark:text-gray-300">Need help with your order?</p>
-              <p className="text-gray-700 dark:text-gray-300">Call us at: <span className="font-medium">+233 20 123 4567</span></p>
+            <div className={contactPanelClass}>
+              <h2 className="text-xl font-bold mb-2">Contact Us</h2>
+              <p className={theme === "dark" ? "text-gray-300" : "text-gray-700 dark:text-gray-300"}>Need help with your order?</p>
+              <p className={theme === "dark" ? "text-gray-300" : "text-gray-700 dark:text-gray-300"}>
+                Call us at: <span className="font-medium">+233 20 123 4567</span>
+              </p>
             </div>
           </div>
         </div>

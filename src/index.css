@@ -95,3 +95,24 @@
   background-position: center;
   background-repeat: no-repeat;
 }
+
+/* Dark mode specific styling */
+.dark .form-container {
+  @apply bg-gray-800/95 backdrop-blur-sm border-gray-700;
+}
+
+.dark input, 
+.dark select, 
+.dark textarea {
+  @apply bg-gray-900 border-gray-700 text-gray-100;
+}
+
+.dark input::placeholder, 
+.dark textarea::placeholder {
+  @apply text-gray-400;
+}
+
+.dark .card-dark {
+  @apply bg-gray-800/95 backdrop-blur-sm border-gray-700 text-white;
+}
+

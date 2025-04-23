@@ -23,13 +23,16 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
-  foodMenu, 
+  getFoods,
   drinkOptions, 
-  locationOptions, 
+  getLocations, 
+  getPaymentModes,
   saveBooking, 
   generateOrderId,
   Booking,
-  Food
+  Food,
+  Location,
+  PaymentMode
 } from '@/lib/storage';
 import { 
   validateBookingForm, 
@@ -38,8 +41,10 @@ import {
   formatGhanaPhone 
 } from '@/lib/validation';
 import OrderSummary from './OrderSummary';
+import { useTheme } from '@/hooks/use-theme';
 
 const BookingForm = () => {
+  const { theme } = useTheme();
   const [formData, setFormData] = useState<BookingFormData>({
     foodId: 0,
     price: 0,
@@ -58,16 +63,46 @@ const BookingForm = () => {
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // Load dynamic data
+  const [foodItems, setFoodItems] = useState<Food[]>([]);
+  const [locationItems, setLocationItems] = useState<Location[]>([]);
+  const [paymentModeItems, setPaymentModeItems] = useState<PaymentMode[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+  const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
+  
+  // Fetch dynamic data on component mount
+  useEffect(() => {
+    // Load food items
+    const foods = getFoods();
+    setFoodItems(foods);
+    
+    // Load locations
+    const locations = getLocations();
+    setLocationItems(locations);
+    setAvailableLocations(locations
+      .filter(loc => loc.active)
+      .map(loc => loc.name)
+    );
+    
+    // Load payment modes
+    const paymentModes = getPaymentModes();
+    setPaymentModeItems(paymentModes);
+    setAvailablePaymentModes(paymentModes
+      .filter(mode => mode.active)
+      .map(mode => mode.name)
+    );
+  }, []);
+  
   // Set food price when food selection changes
   useEffect(() => {
     if (formData.foodId) {
-      const food = foodMenu.find(item => item.id === formData.foodId);
+      const food = foodItems.find(item => item.id === formData.foodId);
       if (food) {
         setFormData(prev => ({ ...prev, price: food.price }));
         setSelectedFood(food);
       }
     }
-  }, [formData.foodId]);
+  }, [formData.foodId, foodItems]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -200,27 +235,35 @@ const BookingForm = () => {
     setSelectedFood(null);
   };
   
+  const formClasses = theme === "dark" 
+    ? "space-y-6 bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-gray-700 text-white" 
+    : "space-y-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg";
+  
   return (
     <div className="w-full max-w-3xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg">
-        <h2 className="text-2xl font-bold text-food-dark">Order Form</h2>
+      <form onSubmit={handleSubmit} className={formClasses}>
+        <h2 className="text-2xl font-bold">Order Form</h2>
         
         {/* Food Selection */}
         <div className="space-y-2">
           <Label htmlFor="foodId">Select Food</Label>
           <Select
-            value={formData.foodId.toString()}
+            value={formData.foodId.toString() || "0"}
             onValueChange={(value) => handleSelectChange('foodId', parseInt(value))}
           >
-            <SelectTrigger id="foodId" aria-label="Select food">
+            <SelectTrigger id="foodId" aria-label="Select food" className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}>
               <SelectValue placeholder="Select food" />
             </SelectTrigger>
             <SelectContent>
-              {foodMenu.map((food) => (
-                <SelectItem key={food.id} value={food.id.toString()}>
-                  {food.name} (GHS {food.price})
-                </SelectItem>
-              ))}
+              {foodItems.length === 0 ? (
+                <SelectItem value="0" disabled>No food items available</SelectItem>
+              ) : (
+                foodItems.map((food) => (
+                  <SelectItem key={food.id} value={food.id.toString()}>
+                    {food.name} (GHS {food.price})
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
           {errors.foodId && <p className="text-red-500 text-sm">{errors.foodId}</p>}
@@ -236,7 +279,7 @@ const BookingForm = () => {
             value={formData.price}
             onChange={handleInputChange}
             readOnly
-            className="bg-gray-100"
+            className={theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-gray-100"}
             aria-label="Food price"
           />
           {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
@@ -254,6 +297,7 @@ const BookingForm = () => {
             value={formData.quantity}
             onChange={handleQuantityChange}
             aria-label="Quantity"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
           />
           {errors.quantity && <p className="text-red-500 text-sm">{errors.quantity}</p>}
         </div>
@@ -283,17 +327,19 @@ const BookingForm = () => {
           <Label>Payment Mode</Label>
           <RadioGroup
             value={formData.paymentMode}
-            onValueChange={(value) => handleSelectChange('paymentMode', value as 'Mobile Money' | 'Cash')}
+            onValueChange={(value) => handleSelectChange('paymentMode', value as string)}
             className="flex flex-col space-y-2"
           >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Mobile Money" id="mobile-money" />
-              <Label htmlFor="mobile-money">Mobile Money</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Cash" id="cash" />
-              <Label htmlFor="cash">Cash</Label>
-            </div>
+            {availablePaymentModes.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No payment modes available</div>
+            ) : (
+              availablePaymentModes.map((mode) => (
+                <div key={mode} className="flex items-center space-x-2">
+                  <RadioGroupItem value={mode} id={`payment-${mode}`} />
+                  <Label htmlFor={`payment-${mode}`}>{mode}</Label>
+                </div>
+              ))
+            )}
           </RadioGroup>
           {errors.paymentMode && <p className="text-red-500 text-sm">{errors.paymentMode}</p>}
         </div>
@@ -305,15 +351,19 @@ const BookingForm = () => {
             value={formData.location}
             onValueChange={(value) => handleSelectChange('location', value)}
           >
-            <SelectTrigger id="location" aria-label="Select location">
+            <SelectTrigger id="location" aria-label="Select location" className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}>
               <SelectValue placeholder="Select location" />
             </SelectTrigger>
             <SelectContent>
-              {locationOptions.map((location) => (
-                <SelectItem key={location} value={location}>
-                  {location}
-                </SelectItem>
-              ))}
+              {availableLocations.length === 0 ? (
+                <SelectItem value="" disabled>No locations available</SelectItem>
+              ) : (
+                availableLocations.map((location) => (
+                  <SelectItem key={location} value={location}>
+                    {location}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
           {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
@@ -329,6 +379,7 @@ const BookingForm = () => {
             onChange={handleInputChange}
             placeholder="Landmarks, building name, etc."
             aria-label="Additional location information"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
           />
         </div>
         
@@ -342,6 +393,7 @@ const BookingForm = () => {
             onChange={handleInputChange}
             placeholder="+233 XX XXX XXXX"
             aria-label="Phone number"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
           />
           {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
         </div>
@@ -356,6 +408,7 @@ const BookingForm = () => {
             value={formData.deliveryTime}
             onChange={handleInputChange}
             aria-label="Delivery time"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
           />
           {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
         </div>
@@ -380,7 +433,7 @@ const BookingForm = () => {
       
       {/* Confirmation Modal */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={theme === "dark" ? "sm:max-w-md bg-gray-800 text-white" : "sm:max-w-md"}>
           <DialogHeader>
             <DialogTitle className="text-center">Order Confirmed!</DialogTitle>
             <DialogDescription className="text-center">
@@ -395,7 +448,7 @@ const BookingForm = () => {
             </div>
             
             {selectedFood && (
-              <div className="border rounded-lg p-4 bg-gray-50">
+              <div className={theme === "dark" ? "border rounded-lg p-4 bg-gray-700 border-gray-600" : "border rounded-lg p-4 bg-gray-50"}>
                 <h3 className="font-semibold mb-2">Order Details:</h3>
                 <p><span className="font-medium">Food:</span> {selectedFood.name}</p>
                 <p><span className="font-medium">Quantity:</span> {formData.quantity}</p>

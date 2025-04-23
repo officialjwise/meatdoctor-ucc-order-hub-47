@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Food } from '@/lib/storage';
+import { useTheme } from '@/hooks/use-theme';
 
 interface OrderSummaryProps {
   food: Food;
@@ -10,12 +11,21 @@ interface OrderSummaryProps {
 }
 
 const OrderSummary: React.FC<OrderSummaryProps> = ({ food, quantity, drink }) => {
+  const { theme } = useTheme();
   // Calculate total price
   const totalPrice = food.price * quantity;
   
+  const headerClass = theme === "dark" 
+    ? "bg-gray-700 pb-2 border-gray-600" 
+    : "bg-gray-50 pb-2";
+  
+  const cardClass = theme === "dark"
+    ? "border border-gray-600"
+    : "border border-gray-200";
+  
   return (
-    <Card className="border border-gray-200">
-      <CardHeader className="bg-gray-50 pb-2">
+    <Card className={cardClass}>
+      <CardHeader className={headerClass}>
         <CardTitle className="text-lg font-medium">Order Summary</CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
@@ -38,7 +48,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ food, quantity, drink }) =>
               <span>{drink}</span>
             </div>
           )}
-          <div className="border-t pt-2 mt-2">
+          <div className={theme === "dark" ? "border-t border-gray-600 pt-2 mt-2" : "border-t pt-2 mt-2"}>
             <div className="flex justify-between font-semibold">
               <span>Total:</span>
               <span>GHS {totalPrice.toFixed(2)}</span>
