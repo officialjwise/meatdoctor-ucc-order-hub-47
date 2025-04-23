@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { ModeToggle } from "@/components/ui/mode-toggle";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import BookingForm from '@/components/BookingForm';
 import Footer from '@/components/Footer';
 import { getSiteSettings } from '@/lib/storage';
@@ -49,7 +48,7 @@ const Index = () => {
         
         <div className="flex items-center gap-4">
           <a href="/admin" className="text-sm hover:underline">Admin</a>
-          <ModeToggle />
+          <ThemeToggle />
         </div>
       </header>
       

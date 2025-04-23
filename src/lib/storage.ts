@@ -368,11 +368,24 @@ export const setAdminSession = (): void => {
   window.localStorage.setItem('tokenExpiry', expiryTime.toString());
 };
 
+export const createAdminSession = (email: string): void => {
+  setAdminSession();
+  localStorage.setItem('adminEmail', email);
+};
+
 export const clearAdminSession = (): void => {
   window.localStorage.removeItem('adminToken');
   window.localStorage.removeItem('tokenExpiry');
   window.localStorage.removeItem('adminOTP');
   window.localStorage.removeItem('adminOTPExpiry');
+};
+
+export const isAdminAuthenticated = (): boolean => {
+  const token = localStorage.getItem("adminToken");
+  const tokenExpiry = localStorage.getItem("tokenExpiry");
+  
+  // Check if token exists and hasn't expired
+  return !!token && !!tokenExpiry && new Date().getTime() < parseInt(tokenExpiry);
 };
 
 // Site settings
@@ -382,4 +395,45 @@ export const getSiteSettings = (): SiteSettings | null => {
 
 export const updateSiteSettings = (settings: SiteSettings): void => {
   setLocalStorage('siteSettings', settings);
+};
+
+// Settings management for app configuration
+export type Settings = {
+  sms: {
+    clientId: string;
+    clientSecret: string;
+    senderId: string;
+  };
+  email: {
+    apiKey: string;
+    fromEmail: string;
+    fromName: string;
+  };
+  notifications: {
+    enabled: boolean;
+    soundEnabled: boolean;
+  };
+};
+
+export const getSettings = (): Settings => {
+  return getLocalStorage<Settings>('settings', {
+    sms: {
+      clientId: '',
+      clientSecret: '',
+      senderId: 'MeatDoctor'
+    },
+    email: {
+      apiKey: '',
+      fromEmail: 'no-reply@meatdoctorucc.com',
+      fromName: 'MeatDoctor UCC'
+    },
+    notifications: {
+      enabled: true,
+      soundEnabled: true
+    }
+  });
+};
+
+export const saveSettings = (settings: Settings): void => {
+  setLocalStorage('settings', settings);
 };
