@@ -21,6 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
@@ -163,9 +164,65 @@ const PaymentMethodManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Payment Methods</h2>
-        <Button variant="default">
-          <CreditCard className="mr-2 h-4 w-4" /> Add New Payment Method
-        </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="default">
+              <CreditCard className="mr-2 h-4 w-4" /> Add New Payment Method
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Payment Method</DialogTitle>
+              <DialogDescription>
+                Create a new payment method to be available on the ordering page.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label htmlFor="paymentModeName" className="block text-sm font-medium mb-1">
+                  Payment Method Name *
+                </label>
+                <Input
+                  id="paymentModeName"
+                  placeholder="Enter payment method name"
+                  value={newPaymentMode.name}
+                  onChange={(e) => setNewPaymentMode({ ...newPaymentMode, name: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="paymentModeDescription" className="block text-sm font-medium mb-1">
+                  Description
+                </label>
+                <Textarea
+                  id="paymentModeDescription"
+                  placeholder="Describe the payment method (optional)"
+                  value={newPaymentMode.description || ''}
+                  onChange={(e) => setNewPaymentMode({ ...newPaymentMode, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="paymentModeActive"
+                  checked={newPaymentMode.active}
+                  onCheckedChange={(checked) => setNewPaymentMode({ ...newPaymentMode, active: checked })}
+                />
+                <label htmlFor="paymentModeActive" className="text-sm font-medium">
+                  Active
+                </label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button">Cancel</Button>
+              <Button onClick={handleAddPaymentMode}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Payment Method
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="p-4">
@@ -234,51 +291,7 @@ const PaymentMethodManagement = () => {
         </Table>
       </Card>
 
-      <Card className="p-4">
-        <h3 className="text-lg font-semibold mb-4">Add New Payment Method</h3>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="paymentModeName" className="block text-sm font-medium mb-1">
-              Payment Method Name *
-            </label>
-            <Input
-              id="paymentModeName"
-              placeholder="Enter payment method name"
-              value={newPaymentMode.name}
-              onChange={(e) => setNewPaymentMode({ ...newPaymentMode, name: e.target.value })}
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="paymentModeDescription" className="block text-sm font-medium mb-1">
-              Description
-            </label>
-            <Textarea
-              id="paymentModeDescription"
-              placeholder="Describe the payment method (optional)"
-              value={newPaymentMode.description || ''}
-              onChange={(e) => setNewPaymentMode({ ...newPaymentMode, description: e.target.value })}
-              rows={3}
-            />
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="paymentModeActive"
-              checked={newPaymentMode.active}
-              onCheckedChange={(checked) => setNewPaymentMode({ ...newPaymentMode, active: checked })}
-            />
-            <label htmlFor="paymentModeActive" className="text-sm font-medium">
-              Active
-            </label>
-          </div>
-          
-          <Button onClick={handleAddPaymentMode} className="w-full">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Payment Method
-          </Button>
-        </div>
-      </Card>
+      {/* Form moved to dialog */}
 
       {/* Edit Payment Mode Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

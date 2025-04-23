@@ -98,7 +98,7 @@
 
 /* Dark mode specific styling */
 .dark .form-container {
-  @apply bg-gray-800/95 backdrop-blur-sm border-gray-700;
+  @apply bg-gray-800/95 backdrop-blur-sm border-gray-700 border-2;
 }
 
 .dark input, 
@@ -114,5 +114,30 @@
 
 .dark .card-dark {
   @apply bg-gray-800/95 backdrop-blur-sm border-gray-700 text-white;
+}
+
+/* Enhanced dark mode styling */
+.dark .dialog-content {
+  @apply bg-gray-800 text-white border-gray-700;
+}
+
+.dark .select-dropdown {
+  @apply bg-gray-800 border-gray-700;
+}
+
+.dark .form-input, .dark .form-select, .dark .form-textarea {
+  @apply bg-gray-900 border-gray-600 text-white;
+}
+
+.dark .muted-text {
+  @apply text-gray-300;
+}
+
+.dark .order-form {
+  @apply border-2 border-gray-600 bg-gray-800/90 text-white shadow-xl;
+}
+
+.dark .form-label {
+  @apply text-gray-200;
 }
 

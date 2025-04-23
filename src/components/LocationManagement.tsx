@@ -21,6 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
@@ -163,9 +164,65 @@ const LocationManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Location Management</h2>
-        <Button variant="default">
-          <MapPin className="mr-2 h-4 w-4" /> Add New Location
-        </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="default">
+              <MapPin className="mr-2 h-4 w-4" /> Add New Location
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Location</DialogTitle>
+              <DialogDescription>
+                Create a new delivery location to be available on the ordering page.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label htmlFor="locationName" className="block text-sm font-medium mb-1">
+                  Location Name *
+                </label>
+                <Input
+                  id="locationName"
+                  placeholder="Enter location name"
+                  value={newLocation.name}
+                  onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="locationDescription" className="block text-sm font-medium mb-1">
+                  Description
+                </label>
+                <Textarea
+                  id="locationDescription"
+                  placeholder="Describe the location (optional)"
+                  value={newLocation.description || ''}
+                  onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="locationActive"
+                  checked={newLocation.active}
+                  onCheckedChange={(checked) => setNewLocation({ ...newLocation, active: checked })}
+                />
+                <label htmlFor="locationActive" className="text-sm font-medium">
+                  Active
+                </label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button">Cancel</Button>
+              <Button onClick={handleAddLocation}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Location
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="p-4">
@@ -234,51 +291,7 @@ const LocationManagement = () => {
         </Table>
       </Card>
 
-      <Card className="p-4">
-        <h3 className="text-lg font-semibold mb-4">Add New Location</h3>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="locationName" className="block text-sm font-medium mb-1">
-              Location Name *
-            </label>
-            <Input
-              id="locationName"
-              placeholder="Enter location name"
-              value={newLocation.name}
-              onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="locationDescription" className="block text-sm font-medium mb-1">
-              Description
-            </label>
-            <Textarea
-              id="locationDescription"
-              placeholder="Describe the location (optional)"
-              value={newLocation.description || ''}
-              onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
-              rows={3}
-            />
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="locationActive"
-              checked={newLocation.active}
-              onCheckedChange={(checked) => setNewLocation({ ...newLocation, active: checked })}
-            />
-            <label htmlFor="locationActive" className="text-sm font-medium">
-              Active
-            </label>
-          </div>
-          
-          <Button onClick={handleAddLocation} className="w-full">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Location
-          </Button>
-        </div>
-      </Card>
+      {/* Form moved to dialog */}
 
       {/* Edit Location Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

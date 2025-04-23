@@ -236,7 +236,7 @@ const BookingForm = () => {
   };
   
   const formClasses = theme === "dark" 
-    ? "space-y-6 bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border border-gray-700 text-white" 
+    ? "space-y-6 bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border-2 border-gray-600 text-white order-form" 
     : "space-y-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg";
   
   return (
@@ -246,7 +246,7 @@ const BookingForm = () => {
         
         {/* Food Selection */}
         <div className="space-y-2">
-          <Label htmlFor="foodId">Select Food</Label>
+          <Label htmlFor="foodId" className={theme === "dark" ? "form-label" : ""}>Select Food</Label>
           <Select
             value={formData.foodId.toString() || "0"}
             onValueChange={(value) => handleSelectChange('foodId', parseInt(value))}
@@ -412,6 +412,21 @@ const BookingForm = () => {
           />
           {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
         </div>
+        
+        {/* Food Image Display */}
+        {selectedFood && selectedFood.imageUrl && (
+          <div className={theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"}>
+            <h3 className="text-md font-medium mb-2">Selected Food</h3>
+            <div className="flex justify-center mb-2">
+              <img 
+                src={selectedFood.imageUrl} 
+                alt={selectedFood.name} 
+                className="h-32 w-auto object-cover rounded-md" 
+              />
+            </div>
+            <p className="text-center font-medium">{selectedFood.name}</p>
+          </div>
+        )}
         
         {/* Order Summary */}
         {selectedFood && (

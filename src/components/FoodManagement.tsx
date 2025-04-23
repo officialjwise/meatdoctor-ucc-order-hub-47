@@ -184,9 +184,89 @@ const FoodManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Food Management</h2>
-        <Button variant="default">
-          <Plus className="mr-2 h-4 w-4" /> Add New Food
-        </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="default">
+              <Plus className="mr-2 h-4 w-4" /> Add New Food
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Food</DialogTitle>
+              <DialogDescription>
+                Create a new food item to be available on the ordering page.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label htmlFor="foodName" className="block text-sm font-medium mb-1">
+                  Food Name *
+                </label>
+                <Input
+                  id="foodName"
+                  placeholder="Enter food name"
+                  value={newFood.name}
+                  onChange={(e) => setNewFood({ ...newFood, name: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="foodPrice" className="block text-sm font-medium mb-1">
+                  Price (GHS) *
+                </label>
+                <Input
+                  id="foodPrice"
+                  type="number"
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                  value={newFood.price || ''}
+                  onChange={(e) => setNewFood({ ...newFood, price: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="foodDescription" className="block text-sm font-medium mb-1">
+                  Description
+                </label>
+                <Textarea
+                  id="foodDescription"
+                  placeholder="Describe the food item"
+                  value={newFood.description || ''}
+                  onChange={(e) => setNewFood({ ...newFood, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="foodImage" className="block text-sm font-medium mb-1">
+                  Food Image
+                </label>
+                <Input
+                  id="foodImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+                {newFood.imageUrl && (
+                  <div className="mt-2">
+                    <img 
+                      src={newFood.imageUrl} 
+                      alt="Food preview" 
+                      className="h-24 w-auto object-cover rounded"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button">
+                Cancel
+              </Button>
+              <Button onClick={handleAddFood}>Add Food</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="p-4">
@@ -264,75 +344,7 @@ const FoodManagement = () => {
         </Table>
       </Card>
 
-      <Card className="p-4">
-        <h3 className="text-lg font-semibold mb-4">Add New Food</h3>
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="foodName" className="block text-sm font-medium mb-1">
-              Food Name *
-            </label>
-            <Input
-              id="foodName"
-              placeholder="Enter food name"
-              value={newFood.name}
-              onChange={(e) => setNewFood({ ...newFood, name: e.target.value })}
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="foodPrice" className="block text-sm font-medium mb-1">
-              Price (GHS) *
-            </label>
-            <Input
-              id="foodPrice"
-              type="number"
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              value={newFood.price || ''}
-              onChange={(e) => setNewFood({ ...newFood, price: parseFloat(e.target.value) || 0 })}
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="foodDescription" className="block text-sm font-medium mb-1">
-              Description
-            </label>
-            <Textarea
-              id="foodDescription"
-              placeholder="Describe the food item"
-              value={newFood.description || ''}
-              onChange={(e) => setNewFood({ ...newFood, description: e.target.value })}
-              rows={3}
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="foodImage" className="block text-sm font-medium mb-1">
-              Food Image
-            </label>
-            <Input
-              id="foodImage"
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-            />
-            {newFood.imageUrl && (
-              <div className="mt-2">
-                <img 
-                  src={newFood.imageUrl} 
-                  alt="Food preview" 
-                  className="h-24 w-auto object-cover rounded"
-                />
-              </div>
-            )}
-          </div>
-          
-          <Button onClick={handleAddFood} className="w-full">
-            Add Food
-          </Button>
-        </div>
-      </Card>
+      {/* Form moved to dialog */}
 
       {/* Edit Food Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
