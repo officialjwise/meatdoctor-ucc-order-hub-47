@@ -5,6 +5,7 @@ import { getSettings, getBookingById } from '@/lib/storage';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { toast } from "sonner";
 import { Search } from 'lucide-react';
 
@@ -62,7 +63,10 @@ const Index = () => {
       }}
     >
       <div className="w-full max-w-6xl mx-auto">
-        <header className="mb-8 text-center">
+        <header className="mb-8 text-center relative">
+          <div className="absolute right-0 top-0">
+            <ThemeToggle />
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-2 animate-fade-in">MeatDoctorUcc</h1>
           <p className="text-white/80 text-lg md:text-xl">Delicious meals, delivered to your doorstep</p>
         </header>
@@ -75,8 +79,8 @@ const Index = () => {
           
           {/* Order Tracking */}
           <div className="w-full md:w-1/3 space-y-6">
-            <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg">
-              <h2 className="text-2xl font-bold text-food-dark mb-4">Track Your Order</h2>
+            <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg dark:bg-gray-800/90 dark:text-white">
+              <h2 className="text-2xl font-bold text-food-dark dark:text-white mb-4">Track Your Order</h2>
               <form onSubmit={handleOrderSearch} className="space-y-4">
                 <div className="flex space-x-2">
                   <Input 
@@ -113,10 +117,10 @@ const Index = () => {
               )}
             </div>
             
-            <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg">
-              <h2 className="text-xl font-bold text-food-dark mb-2">Contact Us</h2>
-              <p className="text-gray-700">Need help with your order?</p>
-              <p className="text-gray-700">Call us at: <span className="font-medium">+233 20 123 4567</span></p>
+            <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg dark:bg-gray-800/90 dark:text-white">
+              <h2 className="text-xl font-bold text-food-dark dark:text-white mb-2">Contact Us</h2>
+              <p className="text-gray-700 dark:text-gray-300">Need help with your order?</p>
+              <p className="text-gray-700 dark:text-gray-300">Call us at: <span className="font-medium">+233 20 123 4567</span></p>
             </div>
           </div>
         </div>

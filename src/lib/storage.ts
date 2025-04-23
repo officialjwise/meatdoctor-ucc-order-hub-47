@@ -1,6 +1,15 @@
-
 // Types for our data model
 export interface Food {
+  id: number;
+  name: string;
+  price: number;
+  description?: string;
+  options?: FoodOption[];
+  imageUrl?: string;
+  locationIds?: number[];
+}
+
+export interface FoodOption {
   id: number;
   name: string;
   price: number;
@@ -11,13 +20,27 @@ export interface Booking {
   food: Food;
   quantity: number;
   drink: string | null;
-  paymentMode: 'Mobile Money' | 'Cash';
+  paymentMode: string;
   location: string;
   additionalInfo: string;
   phoneNumber: string;
   deliveryTime: string;
   status: 'Pending' | 'Confirmed' | 'Delivered' | 'Cancelled';
   createdAt: string;
+}
+
+export interface Location {
+  id: number;
+  name: string;
+  description?: string;
+  active: boolean;
+}
+
+export interface PaymentMode {
+  id: number;
+  name: string;
+  description?: string;
+  active: boolean;
 }
 
 export interface Settings {
@@ -29,9 +52,11 @@ export interface Settings {
     password: string;
   };
   sms: {
-    apiKey: string;
+    clientId: string;
+    clientSecret: string;
     senderId: string;
   };
+  theme: 'light' | 'dark';
 }
 
 // Food menu data
@@ -117,9 +142,11 @@ export const defaultSettings: Settings = {
     password: '',
   },
   sms: {
-    apiKey: '',
+    clientId: '',
+    clientSecret: '',
     senderId: 'MeatDoctor',
   },
+  theme: 'light',
 };
 
 export const getSettings = (): Settings => {
@@ -133,7 +160,6 @@ export const saveSettings = (settings: Settings): void => {
 
 // Admin authentication
 export const createAdminSession = (email: string): void => {
-  // Set token expiry to 30 minutes from now
   const expiry = new Date().getTime() + 30 * 60 * 1000;
   
   localStorage.setItem('adminEmail', email);
@@ -189,4 +215,156 @@ export const getAnalytics = () => {
     popularFoods,
     statusCounts,
   };
+};
+
+// CRUD operations for Food items
+export const getFoods = (): Food[] => {
+  const foods = localStorage.getItem('foods');
+  return foods ? JSON.parse(foods) : foodMenu;
+};
+
+export const saveFood = (food: Food): Food => {
+  const foods = getFoods();
+  
+  // Check if it's an update or a new item
+  const exists = foods.findIndex(f => f.id === food.id) !== -1;
+  
+  // If it's a new food item, generate a new ID
+  if (!exists) {
+    // Get the highest ID and increment by 1
+    const maxId = foods.reduce((max, food) => Math.max(max, food.id), 0);
+    food.id = maxId + 1;
+  }
+  
+  // Update or add the food item
+  const updatedFoods = exists
+    ? foods.map(f => f.id === food.id ? food : f)
+    : [...foods, food];
+  
+  localStorage.setItem('foods', JSON.stringify(updatedFoods));
+  return food;
+};
+
+export const deleteFood = (id: number): boolean => {
+  const foods = getFoods();
+  const filteredFoods = foods.filter(food => food.id !== id);
+  
+  if (filteredFoods.length !== foods.length) {
+    localStorage.setItem('foods', JSON.stringify(filteredFoods));
+    return true;
+  }
+  
+  return false;
+};
+
+export const getFoodById = (id: number): Food | undefined => {
+  const foods = getFoods();
+  return foods.find(food => food.id === id);
+};
+
+// CRUD operations for Locations
+export const getLocations = (): Location[] => {
+  const locations = localStorage.getItem('locations');
+  if (locations) return JSON.parse(locations);
+  
+  // Initialize with default locations
+  const defaultLocations: Location[] = locationOptions.map((name, index) => ({
+    id: index + 1,
+    name,
+    active: true
+  }));
+  
+  localStorage.setItem('locations', JSON.stringify(defaultLocations));
+  return defaultLocations;
+};
+
+export const saveLocation = (location: Location): Location => {
+  const locations = getLocations();
+  
+  // Check if it's an update or a new item
+  const exists = locations.findIndex(l => l.id === location.id) !== -1;
+  
+  // If it's a new location, generate a new ID
+  if (!exists) {
+    const maxId = locations.reduce((max, loc) => Math.max(max, loc.id), 0);
+    location.id = maxId + 1;
+  }
+  
+  // Update or add the location
+  const updatedLocations = exists
+    ? locations.map(l => l.id === location.id ? location : l)
+    : [...locations, location];
+  
+  localStorage.setItem('locations', JSON.stringify(updatedLocations));
+  return location;
+};
+
+export const deleteLocation = (id: number): boolean => {
+  const locations = getLocations();
+  const filteredLocations = locations.filter(location => location.id !== id);
+  
+  if (filteredLocations.length !== locations.length) {
+    localStorage.setItem('locations', JSON.stringify(filteredLocations));
+    return true;
+  }
+  
+  return false;
+};
+
+// CRUD operations for Payment Modes
+export const getPaymentModes = (): PaymentMode[] => {
+  const paymentModes = localStorage.getItem('paymentModes');
+  if (paymentModes) return JSON.parse(paymentModes);
+  
+  // Initialize with default payment modes
+  const defaultPaymentModes: PaymentMode[] = [
+    {
+      id: 1,
+      name: 'Mobile Money',
+      description: 'Pay with MTN, Vodafone, or AirtelTigo Mobile Money',
+      active: true
+    },
+    {
+      id: 2,
+      name: 'Cash',
+      description: 'Pay with cash on delivery',
+      active: true
+    }
+  ];
+  
+  localStorage.setItem('paymentModes', JSON.stringify(defaultPaymentModes));
+  return defaultPaymentModes;
+};
+
+export const savePaymentMode = (paymentMode: PaymentMode): PaymentMode => {
+  const paymentModes = getPaymentModes();
+  
+  // Check if it's an update or a new item
+  const exists = paymentModes.findIndex(p => p.id === paymentMode.id) !== -1;
+  
+  // If it's a new payment mode, generate a new ID
+  if (!exists) {
+    const maxId = paymentModes.reduce((max, mode) => Math.max(max, mode.id), 0);
+    paymentMode.id = maxId + 1;
+  }
+  
+  // Update or add the payment mode
+  const updatedPaymentModes = exists
+    ? paymentModes.map(p => p.id === paymentMode.id ? paymentMode : p)
+    : [...paymentModes, paymentMode];
+  
+  localStorage.setItem('paymentModes', JSON.stringify(updatedPaymentModes));
+  return paymentMode;
+};
+
+export const deletePaymentMode = (id: number): boolean => {
+  const paymentModes = getPaymentModes();
+  const filteredPaymentModes = paymentModes.filter(mode => mode.id !== id);
+  
+  if (filteredPaymentModes.length !== paymentModes.length) {
+    localStorage.setItem('paymentModes', JSON.stringify(filteredPaymentModes));
+    return true;
+  }
+  
+  return false;
 };

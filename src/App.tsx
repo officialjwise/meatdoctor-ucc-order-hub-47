@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { ThemeProvider } from "./hooks/use-theme";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import AdminOTP from "./pages/AdminOTP";
@@ -43,28 +44,30 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Main App component
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <TooltipProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/otp" element={<AdminOTP />} />
-            <Route 
-              path="/admin/dashboard/*" 
-              element={
-                <ProtectedRoute>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Toaster />
-          <Sonner />
-        </TooltipProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <TooltipProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/otp" element={<AdminOTP />} />
+              <Route 
+                path="/admin/dashboard/*" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <Toaster />
+            <Sonner />
+          </TooltipProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

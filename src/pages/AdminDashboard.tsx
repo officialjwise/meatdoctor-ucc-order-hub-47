@@ -5,8 +5,12 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import AdminNavbar from '@/components/AdminNavbar';
 import BookingsTable from '@/components/BookingsTable';
 import SettingsPanel from '@/components/SettingsPanel';
-import AnalyticsPanel from '@/components/AnalyticsPanel';
+import EnhancedAnalyticsPanel from '@/components/EnhancedAnalyticsPanel';
+import FoodManagement from '@/components/FoodManagement';
+import LocationManagement from '@/components/LocationManagement';
+import PaymentMethodManagement from '@/components/PaymentMethodManagement';
 import { getBookings } from '@/lib/storage';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const AdminDashboard = () => {
   const isMobile = useIsMobile();
@@ -35,13 +39,19 @@ const AdminDashboard = () => {
       return 'Settings';
     } else if (path.endsWith('/analytics')) {
       return 'Analytics';
+    } else if (path.endsWith('/foods')) {
+      return 'Food Management';
+    } else if (path.endsWith('/locations')) {
+      return 'Location Management';
+    } else if (path.endsWith('/payment-methods')) {
+      return 'Payment Methods';
     } else {
       return 'Bookings Management';
     }
   };
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="flex flex-col md:flex-row">
         {/* Sidebar */}
         <AdminNavbar isMobile={isMobile} />
@@ -49,14 +59,15 @@ const AdminDashboard = () => {
         {/* Main Content */}
         <main className="flex-1">
           {isMobile && (
-            <div className="h-16 bg-gray-50"> {/* This is a spacer for mobile view */}
+            <div className="h-16 bg-background"> {/* Spacer for mobile view */}
               {/* Navbar is rendered above the content in mobile view */}
             </div>
           )}
           
           <div className="p-4 md:p-8">
-            <div className="mb-6">
+            <div className="mb-6 flex justify-between items-center">
               <h1 className="text-2xl md:text-3xl font-bold">{getCurrentPageTitle()}</h1>
+              <ThemeToggle />
             </div>
             
             <Routes>
@@ -67,7 +78,10 @@ const AdminDashboard = () => {
                 />
               } />
               <Route path="settings" element={<SettingsPanel />} />
-              <Route path="analytics" element={<AnalyticsPanel />} />
+              <Route path="analytics" element={<EnhancedAnalyticsPanel />} />
+              <Route path="foods" element={<FoodManagement />} />
+              <Route path="locations" element={<LocationManagement />} />
+              <Route path="payment-methods" element={<PaymentMethodManagement />} />
               <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
             </Routes>
           </div>
