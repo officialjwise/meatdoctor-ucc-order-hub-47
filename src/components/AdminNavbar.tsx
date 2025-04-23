@@ -8,7 +8,10 @@ import {
   ShoppingBag,
   LogOut,
   Menu,
-  X
+  X,
+  Utensils,
+  MapPin,
+  CreditCard
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { clearAdminSession } from '@/lib/storage';
@@ -37,14 +40,29 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ isMobile }) => {
       exact: true
     },
     {
-      label: 'Settings',
-      icon: <Settings className="h-5 w-5" />,
-      href: '/admin/dashboard/settings'
+      label: 'Food Management',
+      icon: <Utensils className="h-5 w-5" />,
+      href: '/admin/dashboard/foods'
+    },
+    {
+      label: 'Location Management',
+      icon: <MapPin className="h-5 w-5" />,
+      href: '/admin/dashboard/locations'
+    },
+    {
+      label: 'Payment Methods',
+      icon: <CreditCard className="h-5 w-5" />,
+      href: '/admin/dashboard/payment-methods'
     },
     {
       label: 'Analytics',
       icon: <BarChart className="h-5 w-5" />,
       href: '/admin/dashboard/analytics'
+    },
+    {
+      label: 'Settings',
+      icon: <Settings className="h-5 w-5" />,
+      href: '/admin/dashboard/settings'
     }
   ];
   
