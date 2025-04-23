@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,20 +62,19 @@ const BookingForm = () => {
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // Load dynamic data
   const [foodItems, setFoodItems] = useState<Food[]>([]);
   const [locationItems, setLocationItems] = useState<Location[]>([]);
   const [paymentModeItems, setPaymentModeItems] = useState<PaymentMode[]>([]);
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
   const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
-  
-  // Fetch dynamic data on component mount
+  const [hoveredFoodId, setHoveredFoodId] = useState<number | null>(null);
+  const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
+
   useEffect(() => {
-    // Load food items
     const foods = getFoods();
     setFoodItems(foods);
     
-    // Load locations
     const locations = getLocations();
     setLocationItems(locations);
     setAvailableLocations(locations
@@ -84,7 +82,6 @@ const BookingForm = () => {
       .map(loc => loc.name)
     );
     
-    // Load payment modes
     const paymentModes = getPaymentModes();
     setPaymentModeItems(paymentModes);
     setAvailablePaymentModes(paymentModes
@@ -92,23 +89,18 @@ const BookingForm = () => {
       .map(mode => mode.name)
     );
   }, []);
-  
-  // Set food price when food selection changes
+
   useEffect(() => {
-    if (formData.foodId) {
-      const food = foodItems.find(item => item.id === formData.foodId);
-      if (food) {
-        setFormData(prev => ({ ...prev, price: food.price }));
-        setSelectedFood(food);
-      }
+    if (selectTriggerRef.current && hoveredFoodId !== null) {
+      const rect = selectTriggerRef.current.getBoundingClientRect();
+      setDropdownPosition({ top: rect.top + window.scrollY, left: rect.right + 8 + window.scrollX });
     }
-  }, [formData.foodId, foodItems]);
-  
+  }, [hoveredFoodId]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Clear error when field is changed
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -117,14 +109,12 @@ const BookingForm = () => {
       });
     }
   };
-  
+
   const handleSelectChange = (name: string, value: string | number) => {
-    // Convert to number for numeric fields
     const processedValue = ['foodId', 'price', 'quantity'].includes(name) ? Number(value) : value;
     
     setFormData(prev => ({ ...prev, [name]: processedValue }));
     
-    // Clear error when field is changed
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -133,9 +123,8 @@ const BookingForm = () => {
       });
     }
   };
-  
+
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Ensure quantity is between 1 and 10
     let value = parseInt(e.target.value);
     if (isNaN(value)) value = 1;
     if (value < 1) value = 1;
@@ -143,7 +132,6 @@ const BookingForm = () => {
     
     setFormData(prev => ({ ...prev, quantity: value }));
     
-    // Clear error when field is changed
     if (errors.quantity) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -152,19 +140,17 @@ const BookingForm = () => {
       });
     }
   };
-  
+
   const handleDrinkChange = (drink: string) => {
-    // Toggle the drink selection
     setFormData(prev => ({
       ...prev,
       drink: prev.drink === drink ? null : drink
     }));
   };
-  
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate form
     const validation: ValidationResult = validateBookingForm(formData);
     
     if (!validation.valid) {
@@ -174,14 +160,11 @@ const BookingForm = () => {
     
     setLoading(true);
     
-    // Simulate API call with a delay
     setTimeout(() => {
       try {
-        // Generate order ID
         const newOrderId = generateOrderId();
         setOrderId(newOrderId);
         
-        // Create booking object
         const booking: Booking = {
           id: newOrderId,
           food: selectedFood!,
@@ -196,13 +179,10 @@ const BookingForm = () => {
           createdAt: new Date().toISOString()
         };
         
-        // Save booking to localStorage
         saveBooking(booking);
         
-        // Show confirmation dialog
         setShowConfirmation(true);
         
-        // Simulate SMS/Email notification
         console.log('SMS Notification:', { 
           to: booking.phoneNumber, 
           message: `Order #${newOrderId} confirmed. Your MeatDoctorUcc order has been placed and will be delivered at ${booking.deliveryTime}. Thank you!` 
@@ -216,11 +196,10 @@ const BookingForm = () => {
       }
     }, 1000);
   };
-  
+
   const handleCloseConfirmation = () => {
     setShowConfirmation(false);
     
-    // Reset form
     setFormData({
       foodId: 0,
       price: 0,
@@ -234,42 +213,91 @@ const BookingForm = () => {
     });
     setSelectedFood(null);
   };
-  
+
   const formClasses = theme === "dark" 
     ? "space-y-6 bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border-2 border-gray-600 text-white order-form" 
     : "space-y-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg";
-  
+
   return (
     <div className="w-full max-w-3xl mx-auto">
       <form onSubmit={handleSubmit} className={formClasses}>
         <h2 className="text-2xl font-bold">Order Form</h2>
         
-        {/* Food Selection */}
-        <div className="space-y-2">
+        <div className="space-y-2 relative z-30">
           <Label htmlFor="foodId" className={theme === "dark" ? "form-label" : ""}>Select Food</Label>
-          <Select
-            value={formData.foodId.toString() || "0"}
-            onValueChange={(value) => handleSelectChange('foodId', parseInt(value))}
-          >
-            <SelectTrigger id="foodId" aria-label="Select food" className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}>
-              <SelectValue placeholder="Select food" />
-            </SelectTrigger>
-            <SelectContent>
-              {foodItems.length === 0 ? (
-                <SelectItem value="0" disabled>No food items available</SelectItem>
-              ) : (
-                foodItems.map((food) => (
-                  <SelectItem key={food.id} value={food.id.toString()}>
-                    {food.name} (GHS {food.price})
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+          <div className="relative">
+            <Select
+              value={formData.foodId.toString() || "0"}
+              onValueChange={(value) => handleSelectChange('foodId', parseInt(value))}
+            >
+              <SelectTrigger
+                id="foodId"
+                aria-label="Select food"
+                className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}
+                ref={selectTriggerRef}
+              >
+                <SelectValue placeholder="Select food" />
+              </SelectTrigger>
+              <SelectContent>
+                {foodItems.length === 0 ? (
+                  <SelectItem value="0" disabled>No food items available</SelectItem>
+                ) : (
+                  foodItems.map((food) => (
+                    <div
+                      key={food.id}
+                      onMouseEnter={() => setHoveredFoodId(food.id)}
+                      onMouseLeave={() => setHoveredFoodId(null)}
+                    >
+                      <SelectItem value={food.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          {food.imageUrl &&
+                            <img src={food.imageUrl} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
+                          }
+                          <span>{food.name} (GHS {food.price})</span>
+                        </div>
+                      </SelectItem>
+                    </div>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+
+            {hoveredFoodId && (() => {
+              const food = foodItems.find(f => f.id === hoveredFoodId && f.imageUrl);
+              if (food && dropdownPosition) {
+                return (
+                  <div
+                    className={`absolute transition-all duration-150 z-[99] shadow-lg rounded-lg 
+                        ${theme === "dark"
+                          ? "bg-gray-900 border border-gray-700 text-white"
+                          : "bg-white border border-gray-300"
+                        }`}
+                    style={{
+                      top: -8,
+                      left: "calc(100% + 18px)",
+                      minWidth: 160,
+                      padding: 12,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center"
+                    }}
+                  >
+                    <img
+                      src={food.imageUrl}
+                      alt={food.name}
+                      className="h-24 w-24 object-cover rounded mb-2 border"
+                    />
+                    <div className={`font-semibold text-sm ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>{food.name}</div>
+                    <div className={`text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>GHS {food.price}</div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
           {errors.foodId && <p className="text-red-500 text-sm">{errors.foodId}</p>}
         </div>
-        
-        {/* Price (Auto-populated) */}
+
         <div className="space-y-2">
           <Label htmlFor="price">Price (GHS)</Label>
           <Input
@@ -284,8 +312,7 @@ const BookingForm = () => {
           />
           {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
         </div>
-        
-        {/* Quantity */}
+
         <div className="space-y-2">
           <Label htmlFor="quantity">Quantity</Label>
           <Input
@@ -301,8 +328,7 @@ const BookingForm = () => {
           />
           {errors.quantity && <p className="text-red-500 text-sm">{errors.quantity}</p>}
         </div>
-        
-        {/* Add a Drink */}
+
         <div className="space-y-2">
           <Label>Add a Drink (Optional)</Label>
           <div className="flex flex-wrap gap-4">
@@ -321,8 +347,7 @@ const BookingForm = () => {
             ))}
           </div>
         </div>
-        
-        {/* Payment Mode */}
+
         <div className="space-y-2">
           <Label>Payment Mode</Label>
           <RadioGroup
@@ -343,8 +368,7 @@ const BookingForm = () => {
           </RadioGroup>
           {errors.paymentMode && <p className="text-red-500 text-sm">{errors.paymentMode}</p>}
         </div>
-        
-        {/* Select Location */}
+
         <div className="space-y-2">
           <Label htmlFor="location">Select Location</Label>
           <Select
@@ -368,8 +392,7 @@ const BookingForm = () => {
           </Select>
           {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
         </div>
-        
-        {/* Additional Location Info */}
+
         <div className="space-y-2">
           <Label htmlFor="additionalInfo">Additional Location Info</Label>
           <Textarea
@@ -382,8 +405,7 @@ const BookingForm = () => {
             className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
           />
         </div>
-        
-        {/* Phone Number */}
+
         <div className="space-y-2">
           <Label htmlFor="phoneNumber">Phone Number</Label>
           <Input
@@ -397,8 +419,7 @@ const BookingForm = () => {
           />
           {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
         </div>
-        
-        {/* Delivery Time */}
+
         <div className="space-y-2">
           <Label htmlFor="deliveryTime">Delivery Time</Label>
           <Input
@@ -412,8 +433,7 @@ const BookingForm = () => {
           />
           {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
         </div>
-        
-        {/* Food Image Display */}
+
         {selectedFood && selectedFood.imageUrl && (
           <div className={theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"}>
             <h3 className="text-md font-medium mb-2">Selected Food</h3>
@@ -427,8 +447,7 @@ const BookingForm = () => {
             <p className="text-center font-medium">{selectedFood.name}</p>
           </div>
         )}
-        
-        {/* Order Summary */}
+
         {selectedFood && (
           <OrderSummary 
             food={selectedFood} 
@@ -436,7 +455,7 @@ const BookingForm = () => {
             drink={formData.drink} 
           />
         )}
-        
+
         <Button 
           type="submit" 
           disabled={loading} 
@@ -445,8 +464,7 @@ const BookingForm = () => {
           {loading ? 'Processing...' : 'Place Order'}
         </Button>
       </form>
-      
-      {/* Confirmation Modal */}
+
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <DialogContent className={theme === "dark" ? "sm:max-w-md bg-gray-800 text-white" : "sm:max-w-md"}>
           <DialogHeader>
