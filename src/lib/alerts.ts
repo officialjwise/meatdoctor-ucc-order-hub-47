@@ -62,7 +62,7 @@ export const showConfirmationAlert = (
   });
 };
 
-// Toast notification
+// Toast notification (still available but we'll prefer SweetAlert for important notifications)
 export const showToast = (title: string, icon: 'success' | 'error' | 'warning' | 'info' = 'info') => {
   const Toast = Swal.mixin({
     toast: true,

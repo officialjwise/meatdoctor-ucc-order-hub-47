@@ -45,7 +45,12 @@ export const checkForNewOrders = (currentOrdersCount: number, previousOrdersCoun
       ? 'A new order has been placed!' 
       : `${newOrdersCount} new orders have been placed!`;
     
-    showNotification(message, { icon: 'success', sound: true });
+    // Use SweetAlert instead of toast for more prominence
+    import('./alerts').then(({ showSuccessAlert }) => {
+      showSuccessAlert(message, 'New order notification');
+      playNotificationSound();
+    });
+    
     return true;
   }
   return false;

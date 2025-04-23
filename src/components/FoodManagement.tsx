@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Food, getFoods, saveFood, deleteFood, getLocations } from '@/lib/storage';
+import { Food, getFoods, saveFood, deleteFood } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,13 +22,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import { 
   Trash2, 
   Edit, 
   Plus,
-  Search
+  Search,
+  X,
+  Image
 } from 'lucide-react';
+import { showSuccessAlert, showErrorAlert, showConfirmationAlert } from '@/lib/alerts';
 
 const FoodManagement = () => {
   const [foods, setFoods] = useState<Food[]>([]);
@@ -36,12 +38,14 @@ const FoodManagement = () => {
   const [editingFood, setEditingFood] = useState<Food | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [foodToDelete, setFoodToDelete] = useState<number | null>(null);
 
   const [newFood, setNewFood] = useState<Omit<Food, 'id'>>({
     name: '',
     price: 0,
     description: '',
+    images: []
   });
 
   // Load foods from localStorage
@@ -57,12 +61,12 @@ const FoodManagement = () => {
   const handleAddFood = () => {
     // Validate inputs
     if (!newFood.name.trim()) {
-      toast.error('Food name is required');
+      showErrorAlert('Required Field Missing', 'Food name is required');
       return;
     }
 
     if (newFood.price <= 0) {
-      toast.error('Price must be greater than 0');
+      showErrorAlert('Invalid Price', 'Price must be greater than 0');
       return;
     }
 
@@ -78,17 +82,26 @@ const FoodManagement = () => {
         name: '',
         price: 0,
         description: '',
+        images: []
       });
       
-      toast.success(`${savedFood.name} has been added successfully`);
+      // Close the dialog
+      setIsAddDialogOpen(false);
+      
+      // Show success message
+      showSuccessAlert('Success', `${savedFood.name} has been added successfully`);
     } catch (error) {
       console.error('Error saving food:', error);
-      toast.error('Failed to add food item');
+      showErrorAlert('Error', 'Failed to add food item');
     }
   };
 
   const handleEditFood = (food: Food) => {
-    setEditingFood({ ...food });
+    setEditingFood({ 
+      ...food,
+      // Ensure images is an array (backward compatibility)
+      images: food.images || (food.imageUrl ? [food.imageUrl] : [])
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -97,30 +110,36 @@ const FoodManagement = () => {
 
     // Validate inputs
     if (!editingFood.name.trim()) {
-      toast.error('Food name is required');
+      showErrorAlert('Required Field Missing', 'Food name is required');
       return;
     }
 
     if (editingFood.price <= 0) {
-      toast.error('Price must be greater than 0');
+      showErrorAlert('Invalid Price', 'Price must be greater than 0');
       return;
     }
 
     try {
+      // For backward compatibility, set imageUrl to the first image
+      if (editingFood.images && editingFood.images.length > 0) {
+        editingFood.imageUrl = editingFood.images[0];
+      }
+      
       // Update the food item
       saveFood(editingFood);
       
       // Update the food list
       setFoods(getFoods());
       
-      // Close dialog and reset form
+      // Close dialog
       setIsEditDialogOpen(false);
       setEditingFood(null);
       
-      toast.success(`Food item updated successfully`);
+      // Show success message
+      showSuccessAlert('Success', 'Food item updated successfully');
     } catch (error) {
       console.error('Error updating food:', error);
-      toast.error('Failed to update food item');
+      showErrorAlert('Error', 'Failed to update food item');
     }
   };
 
@@ -138,9 +157,9 @@ const FoodManagement = () => {
       if (result) {
         // Update the food list
         setFoods(getFoods());
-        toast.success('Food item deleted successfully');
+        showSuccessAlert('Success', 'Food item deleted successfully');
       } else {
-        toast.error('Failed to delete food item');
+        showErrorAlert('Error', 'Failed to delete food item');
       }
       
       // Close dialog and reset
@@ -148,125 +167,80 @@ const FoodManagement = () => {
       setFoodToDelete(null);
     } catch (error) {
       console.error('Error deleting food:', error);
-      toast.error('Failed to delete food item');
+      showErrorAlert('Error', 'Failed to delete food item');
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Check file size (limit to 2MB)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image size should be less than 2MB');
+      showErrorAlert('File Too Large', 'Image size should be less than 2MB');
       return;
     }
 
     // Convert to base64 for storage
     const reader = new FileReader();
     reader.onload = () => {
-      if (editingFood) {
+      if (isEditing && editingFood) {
+        // Add to images array for editing food (max 3 images)
+        const currentImages = editingFood.images || [];
+        if (currentImages.length >= 3) {
+          showErrorAlert('Limit Reached', 'Maximum 3 images per food item allowed');
+          return;
+        }
+        
         setEditingFood({
           ...editingFood,
-          imageUrl: reader.result as string
+          images: [...currentImages, reader.result as string]
         });
       } else {
+        // Add to images array for new food (max 3 images)
+        const currentImages = newFood.images || [];
+        if (currentImages.length >= 3) {
+          showErrorAlert('Limit Reached', 'Maximum 3 images per food item allowed');
+          return;
+        }
+        
         setNewFood({
           ...newFood,
-          imageUrl: reader.result as string
+          images: [...currentImages, reader.result as string]
         });
       }
     };
     reader.readAsDataURL(file);
   };
 
+  const removeImage = (index: number, isEditing: boolean) => {
+    if (isEditing && editingFood) {
+      const newImages = [...(editingFood.images || [])];
+      newImages.splice(index, 1);
+      setEditingFood({
+        ...editingFood,
+        images: newImages
+      });
+    } else {
+      const newImages = [...(newFood.images || [])];
+      newImages.splice(index, 1);
+      setNewFood({
+        ...newFood,
+        images: newImages
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Food Management</h2>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="default">
-              <Plus className="mr-2 h-4 w-4" /> Add New Food
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Food</DialogTitle>
-              <DialogDescription>
-                Create a new food item to be available on the ordering page.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <label htmlFor="foodName" className="block text-sm font-medium mb-1">
-                  Food Name *
-                </label>
-                <Input
-                  id="foodName"
-                  placeholder="Enter food name"
-                  value={newFood.name}
-                  onChange={(e) => setNewFood({ ...newFood, name: e.target.value })}
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="foodPrice" className="block text-sm font-medium mb-1">
-                  Price (GHS) *
-                </label>
-                <Input
-                  id="foodPrice"
-                  type="number"
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                  value={newFood.price || ''}
-                  onChange={(e) => setNewFood({ ...newFood, price: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="foodDescription" className="block text-sm font-medium mb-1">
-                  Description
-                </label>
-                <Textarea
-                  id="foodDescription"
-                  placeholder="Describe the food item"
-                  value={newFood.description || ''}
-                  onChange={(e) => setNewFood({ ...newFood, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="foodImage" className="block text-sm font-medium mb-1">
-                  Food Image
-                </label>
-                <Input
-                  id="foodImage"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                />
-                {newFood.imageUrl && (
-                  <div className="mt-2">
-                    <img 
-                      src={newFood.imageUrl} 
-                      alt="Food preview" 
-                      className="h-24 w-auto object-cover rounded"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" type="button">
-                Cancel
-              </Button>
-              <Button onClick={handleAddFood}>Add Food</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          variant="default" 
+          onClick={() => setIsAddDialogOpen(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Add New Food
+        </Button>
       </div>
 
       <Card className="p-4">
@@ -297,12 +271,19 @@ const FoodManagement = () => {
               filteredFoods.map((food) => (
                 <TableRow key={food.id}>
                   <TableCell>
-                    {food.imageUrl ? (
-                      <img 
-                        src={food.imageUrl} 
-                        alt={food.name} 
-                        className="h-12 w-12 object-cover rounded"
-                      />
+                    {(food.imageUrl || (food.images && food.images.length > 0)) ? (
+                      <div className="relative h-12 w-12">
+                        <img 
+                          src={food.imageUrl || food.images?.[0]} 
+                          alt={food.name} 
+                          className="h-12 w-12 object-cover rounded"
+                        />
+                        {food.images && food.images.length > 1 && (
+                          <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs">
+                            {food.images.length}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <div className="h-12 w-12 bg-muted rounded flex items-center justify-center text-muted-foreground">
                         No img
@@ -344,7 +325,99 @@ const FoodManagement = () => {
         </Table>
       </Card>
 
-      {/* Form moved to dialog */}
+      {/* Add Food Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Food</DialogTitle>
+            <DialogDescription>
+              Create a new food item to be available on the ordering page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label htmlFor="foodName" className="block text-sm font-medium mb-1">
+                Food Name *
+              </label>
+              <Input
+                id="foodName"
+                placeholder="Enter food name"
+                value={newFood.name}
+                onChange={(e) => setNewFood({ ...newFood, name: e.target.value })}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="foodPrice" className="block text-sm font-medium mb-1">
+                Price (GHS) *
+              </label>
+              <Input
+                id="foodPrice"
+                type="number"
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                value={newFood.price || ''}
+                onChange={(e) => setNewFood({ ...newFood, price: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="foodDescription" className="block text-sm font-medium mb-1">
+                Description
+              </label>
+              <Textarea
+                id="foodDescription"
+                placeholder="Describe the food item"
+                value={newFood.description || ''}
+                onChange={(e) => setNewFood({ ...newFood, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Food Images (Max 3)
+              </label>
+              <Input
+                id="foodImage"
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageUpload(e, false)}
+                disabled={newFood.images && newFood.images.length >= 3}
+              />
+              
+              {/* Display uploaded images */}
+              {newFood.images && newFood.images.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {newFood.images.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img 
+                        src={image} 
+                        alt={`Food preview ${index + 1}`} 
+                        className="h-16 w-16 object-cover rounded"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => removeImage(index, false)}
+                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddFood}>Add Food</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Food Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -399,24 +472,53 @@ const FoodManagement = () => {
               </div>
               
               <div>
-                <label htmlFor="editFoodImage" className="block text-sm font-medium mb-1">
-                  Food Image
+                <label className="block text-sm font-medium mb-1">
+                  Food Images (Max 3)
                 </label>
                 <Input
                   id="editFoodImage"
                   type="file"
                   accept="image/*"
-                  onChange={handleImageUpload}
+                  onChange={(e) => handleImageUpload(e, true)}
+                  disabled={(editingFood.images || []).length >= 3}
                 />
-                {editingFood.imageUrl && (
-                  <div className="mt-2">
+                
+                {/* Display uploaded images */}
+                {editingFood.images && editingFood.images.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {editingFood.images.map((image, index) => (
+                      <div key={index} className="relative">
+                        <img 
+                          src={image} 
+                          alt={`Food preview ${index + 1}`} 
+                          className="h-16 w-16 object-cover rounded"
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => removeImage(index, true)}
+                          className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : editingFood.imageUrl ? (
+                  <div className="mt-2 relative">
                     <img 
                       src={editingFood.imageUrl} 
                       alt="Food preview" 
-                      className="h-24 w-auto object-cover rounded"
+                      className="h-16 w-16 object-cover rounded"
                     />
+                    <button 
+                      type="button"
+                      onClick={() => setEditingFood({ ...editingFood, imageUrl: '' })}
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           )}

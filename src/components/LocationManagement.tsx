@@ -21,9 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import { 
   Trash2, 
   Edit, 
@@ -31,6 +29,7 @@ import {
   MapPin,
   Plus
 } from 'lucide-react';
+import { showSuccessAlert, showErrorAlert, showConfirmationAlert } from '@/lib/alerts';
 
 const LocationManagement = () => {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -38,6 +37,7 @@ const LocationManagement = () => {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [locationToDelete, setLocationToDelete] = useState<number | null>(null);
 
   const [newLocation, setNewLocation] = useState<Omit<Location, 'id'>>({
@@ -59,7 +59,7 @@ const LocationManagement = () => {
   const handleAddLocation = () => {
     // Validate inputs
     if (!newLocation.name.trim()) {
-      toast.error('Location name is required');
+      showErrorAlert('Required Field Missing', 'Location name is required');
       return;
     }
 
@@ -77,10 +77,14 @@ const LocationManagement = () => {
         active: true,
       });
       
-      toast.success(`${savedLocation.name} has been added successfully`);
+      // Close dialog
+      setIsAddDialogOpen(false);
+      
+      // Show success message
+      showSuccessAlert('Success', `${savedLocation.name} has been added successfully`);
     } catch (error) {
       console.error('Error saving location:', error);
-      toast.error('Failed to add location');
+      showErrorAlert('Error', 'Failed to add location');
     }
   };
 
@@ -94,7 +98,7 @@ const LocationManagement = () => {
 
     // Validate inputs
     if (!editingLocation.name.trim()) {
-      toast.error('Location name is required');
+      showErrorAlert('Required Field Missing', 'Location name is required');
       return;
     }
 
@@ -109,10 +113,11 @@ const LocationManagement = () => {
       setIsEditDialogOpen(false);
       setEditingLocation(null);
       
-      toast.success(`Location updated successfully`);
+      // Show success message
+      showSuccessAlert('Success', 'Location updated successfully');
     } catch (error) {
       console.error('Error updating location:', error);
-      toast.error('Failed to update location');
+      showErrorAlert('Error', 'Failed to update location');
     }
   };
 
@@ -121,7 +126,7 @@ const LocationManagement = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleDeleteLocation = () => {
+  const handleDeleteLocation = async () => {
     if (locationToDelete === null) return;
 
     try {
@@ -130,9 +135,9 @@ const LocationManagement = () => {
       if (result) {
         // Update the locations list
         setLocations(getLocations());
-        toast.success('Location deleted successfully');
+        showSuccessAlert('Success', 'Location deleted successfully');
       } else {
-        toast.error('Failed to delete location');
+        showErrorAlert('Error', 'Failed to delete location');
       }
       
       // Close dialog and reset
@@ -140,11 +145,11 @@ const LocationManagement = () => {
       setLocationToDelete(null);
     } catch (error) {
       console.error('Error deleting location:', error);
-      toast.error('Failed to delete location');
+      showErrorAlert('Error', 'Failed to delete location');
     }
   };
 
-  const toggleLocationActive = (location: Location) => {
+  const toggleLocationActive = async (location: Location) => {
     const updatedLocation = {
       ...location,
       active: !location.active
@@ -153,10 +158,10 @@ const LocationManagement = () => {
     try {
       saveLocation(updatedLocation);
       setLocations(getLocations());
-      toast.success(`${location.name} is now ${!location.active ? 'active' : 'inactive'}`);
+      showSuccessAlert('Status Updated', `${location.name} is now ${!location.active ? 'active' : 'inactive'}`);
     } catch (error) {
       console.error('Error toggling location status:', error);
-      toast.error('Failed to update location status');
+      showErrorAlert('Error', 'Failed to update location status');
     }
   };
 
@@ -164,65 +169,12 @@ const LocationManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Location Management</h2>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="default">
-              <MapPin className="mr-2 h-4 w-4" /> Add New Location
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Location</DialogTitle>
-              <DialogDescription>
-                Create a new delivery location to be available on the ordering page.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <label htmlFor="locationName" className="block text-sm font-medium mb-1">
-                  Location Name *
-                </label>
-                <Input
-                  id="locationName"
-                  placeholder="Enter location name"
-                  value={newLocation.name}
-                  onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="locationDescription" className="block text-sm font-medium mb-1">
-                  Description
-                </label>
-                <Textarea
-                  id="locationDescription"
-                  placeholder="Describe the location (optional)"
-                  value={newLocation.description || ''}
-                  onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="locationActive"
-                  checked={newLocation.active}
-                  onCheckedChange={(checked) => setNewLocation({ ...newLocation, active: checked })}
-                />
-                <label htmlFor="locationActive" className="text-sm font-medium">
-                  Active
-                </label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" type="button">Cancel</Button>
-              <Button onClick={handleAddLocation}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Location
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button 
+          variant="default" 
+          onClick={() => setIsAddDialogOpen(true)}
+        >
+          <MapPin className="mr-2 h-4 w-4" /> Add New Location
+        </Button>
       </div>
 
       <Card className="p-4">
@@ -291,7 +243,63 @@ const LocationManagement = () => {
         </Table>
       </Card>
 
-      {/* Form moved to dialog */}
+      {/* Add Location Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Location</DialogTitle>
+            <DialogDescription>
+              Create a new delivery location to be available on the ordering page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label htmlFor="locationName" className="block text-sm font-medium mb-1">
+                Location Name *
+              </label>
+              <Input
+                id="locationName"
+                placeholder="Enter location name"
+                value={newLocation.name}
+                onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="locationDescription" className="block text-sm font-medium mb-1">
+                Description
+              </label>
+              <Textarea
+                id="locationDescription"
+                placeholder="Describe the location (optional)"
+                value={newLocation.description || ''}
+                onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="locationActive"
+                checked={newLocation.active}
+                onCheckedChange={(checked) => setNewLocation({ ...newLocation, active: checked })}
+              />
+              <label htmlFor="locationActive" className="text-sm font-medium">
+                Active
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddLocation}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Location
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Location Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

@@ -66,6 +66,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               size="icon"
               className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 rounded-full"
               onClick={goToPrevImage}
+              disabled={images.length <= 1}
             >
               <ChevronLeft className="h-6 w-6" />
               <span className="sr-only">Previous image</span>
@@ -84,6 +85,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               size="icon"
               className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10 rounded-full"
               onClick={goToNextImage}
+              disabled={images.length <= 1}
             >
               <ChevronRight className="h-6 w-6" />
               <span className="sr-only">Next image</span>
