@@ -6,6 +6,7 @@ export interface Food {
   description?: string;
   options?: FoodOption[];
   imageUrl?: string;
+  images?: string[];
   locationIds?: number[];
 }
 
