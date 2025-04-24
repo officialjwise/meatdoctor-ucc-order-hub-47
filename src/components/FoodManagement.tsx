@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Food, getFoods, saveFood, deleteFood } from '@/lib/storage';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { 
   Trash2, 
@@ -30,204 +28,281 @@ import {
   X,
   Image
 } from 'lucide-react';
-import { showSuccessAlert, showErrorAlert, showConfirmationAlert } from '@/lib/alerts';
+import { Switch } from '@/components/ui/switch';
+
+const BACKEND_URL = 'http://localhost:4000';
+
+// Predefined categories (you can fetch these from the backend if managed in a separate table)
+const FOOD_CATEGORIES = ['Main Course', 'Dessert', 'Appetizer', 'Beverage', 'Snack'];
 
 const FoodManagement = () => {
-  const [foods, setFoods] = useState<Food[]>([]);
+  const [foods, setFoods] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingFood, setEditingFood] = useState<Food | null>(null);
+  const [editingFood, setEditingFood] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [foodToDelete, setFoodToDelete] = useState<number | null>(null);
+  const [foodToDelete, setFoodToDelete] = useState(null);
 
-  const [newFood, setNewFood] = useState<Omit<Food, 'id'>>({
+  const [newFood, setNewFood] = useState({
     name: '',
-    price: 0,
+    price: '',
     description: '',
-    images: []
+    category: '',
+    image_urls: [],
+    is_available: false,
   });
 
-  // Load foods from localStorage
   useEffect(() => {
-    setFoods(getFoods());
+    fetchFoods();
   }, []);
+
+  const fetchFoods = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/foods`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch foods (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to fetch foods (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data = await response.json();
+      // Normalize image_urls: if image_url exists (old schema), convert to image_urls array
+      const normalizedData = data.map(food => ({
+        ...food,
+        image_urls: food.image_urls || (food.image_url ? [food.image_url] : []),
+      }));
+      console.log('Fetched foods:', normalizedData);
+      setFoods(normalizedData);
+    } catch (error) {
+      console.error('Error fetching foods:', error);
+      toast.error(error.message || 'Failed to load food items.');
+    }
+  };
 
   const filteredFoods = foods.filter(food => 
     food.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    food.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    (food.description || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddFood = () => {
-    // Validate inputs
-    if (!newFood.name.trim()) {
-      showErrorAlert('Required Field Missing', 'Food name is required');
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (files.length > 3) {
+      toast.error('You can upload a maximum of 3 images.');
       return;
     }
 
-    if (newFood.price <= 0) {
-      showErrorAlert('Invalid Price', 'Price must be greater than 0');
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    if (totalSize > 2 * 1024 * 1024) {
+      toast.error('Total image size should be less than 2MB');
+      return;
+    }
+
+    const formData = new FormData();
+    files.forEach(file => formData.append('images', file));
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/foods/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to upload images (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to upload images (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data = await response.json();
+      const imageUrls = data.imageUrls;
+      console.log('Uploaded image URLs:', imageUrls);
+
+      if (isEditing && editingFood) {
+        setEditingFood({ ...editingFood, image_urls: imageUrls });
+      } else {
+        setNewFood({ ...newFood, image_urls: imageUrls });
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      toast.error(error.message || 'Failed to upload images.');
+    }
+  };
+
+  const removeImage = (index, isEditing) => {
+    if (isEditing && editingFood) {
+      const updatedUrls = editingFood.image_urls.filter((_, i) => i !== index);
+      setEditingFood({ ...editingFood, image_urls: updatedUrls });
+    } else {
+      const updatedUrls = newFood.image_urls.filter((_, i) => i !== index);
+      setNewFood({ ...newFood, image_urls: updatedUrls });
+    }
+  };
+
+  const handleAddFood = async () => {
+    if (!newFood.name.trim()) {
+      toast.error('Food name is required');
+      return;
+    }
+
+    const price = parseFloat(newFood.price);
+    if (isNaN(price) || price <= 0) {
+      toast.error('Price must be greater than 0');
       return;
     }
 
     try {
-      // Create a new food item without ID (will be generated in saveFood)
-      const savedFood = saveFood(newFood as Food);
-      
-      // Update the food list
-      setFoods(getFoods());
-      
-      // Reset form
-      setNewFood({
-        name: '',
-        price: 0,
-        description: '',
-        images: []
+      const response = await fetch(`${BACKEND_URL}/api/foods`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify({
+          name: newFood.name,
+          price: price,
+          description: newFood.description || null,
+          category: newFood.category || null,
+          image_urls: newFood.image_urls,
+          is_available: newFood.is_available,
+        }),
       });
-      
-      // Close the dialog
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to add food (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to add food (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const savedFood = await response.json();
+      toast.success(`${savedFood.name} has been added successfully`);
+      setNewFood({ name: '', price: '', description: '', category: '', image_urls: [], is_available: false });
       setIsAddDialogOpen(false);
-      
-      // Show success message
-      showSuccessAlert('Success', `${savedFood.name} has been added successfully`);
+      fetchFoods();
     } catch (error) {
-      console.error('Error saving food:', error);
-      showErrorAlert('Error', 'Failed to add food item');
+      console.error('Error adding food:', error);
+      toast.error(error.message || 'Failed to add food item.');
     }
   };
 
-  const handleEditFood = (food: Food) => {
-    setEditingFood({ 
+  const handleEditFood = (food) => {
+    setEditingFood({
       ...food,
-      // Ensure images is an array (backward compatibility)
-      images: food.images || (food.imageUrl ? [food.imageUrl] : [])
+      price: food.price.toString(),
+      image_urls: food.image_urls || [],
+      is_available: food.is_available || false,
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateFood = () => {
+  const handleUpdateFood = async () => {
     if (!editingFood) return;
 
-    // Validate inputs
     if (!editingFood.name.trim()) {
-      showErrorAlert('Required Field Missing', 'Food name is required');
+      toast.error('Food name is required');
       return;
     }
 
-    if (editingFood.price <= 0) {
-      showErrorAlert('Invalid Price', 'Price must be greater than 0');
+    const price = parseFloat(editingFood.price);
+    if (isNaN(price) || price <= 0) {
+      toast.error('Price must be greater than 0');
       return;
     }
 
     try {
-      // For backward compatibility, set imageUrl to the first image
-      if (editingFood.images && editingFood.images.length > 0) {
-        editingFood.imageUrl = editingFood.images[0];
+      const response = await fetch(`${BACKEND_URL}/api/foods/${editingFood.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify({
+          name: editingFood.name,
+          price: price,
+          description: editingFood.description || null,
+          category: editingFood.category || null,
+          image_urls: editingFood.image_urls,
+          is_available: editingFood.is_available,
+        }),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to update food (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to update food (Status: ${response.status}) - Unexpected response format`);
+        }
       }
-      
-      // Update the food item
-      saveFood(editingFood);
-      
-      // Update the food list
-      setFoods(getFoods());
-      
-      // Close dialog
+
+      toast.success('Food item updated successfully');
       setIsEditDialogOpen(false);
       setEditingFood(null);
-      
-      // Show success message
-      showSuccessAlert('Success', 'Food item updated successfully');
+      fetchFoods();
     } catch (error) {
       console.error('Error updating food:', error);
-      showErrorAlert('Error', 'Failed to update food item');
+      toast.error(error.message || 'Failed to update food item.');
     }
   };
 
-  const confirmDelete = (id: number) => {
+  const confirmDelete = (id) => {
     setFoodToDelete(id);
     setIsDeleteDialogOpen(true);
   };
 
-  const handleDeleteFood = () => {
+  const handleDeleteFood = async () => {
     if (foodToDelete === null) return;
 
     try {
-      const result = deleteFood(foodToDelete);
-      
-      if (result) {
-        // Update the food list
-        setFoods(getFoods());
-        showSuccessAlert('Success', 'Food item deleted successfully');
-      } else {
-        showErrorAlert('Error', 'Failed to delete food item');
+      const response = await fetch(`${BACKEND_URL}/api/foods/${foodToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to delete food (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to delete food (Status: ${response.status}) - Unexpected response format`);
+        }
       }
-      
-      // Close dialog and reset
+
+      toast.success('Food item deleted successfully');
       setIsDeleteDialogOpen(false);
       setFoodToDelete(null);
+      fetchFoods();
     } catch (error) {
       console.error('Error deleting food:', error);
-      showErrorAlert('Error', 'Failed to delete food item');
-    }
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check file size (limit to 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      showErrorAlert('File Too Large', 'Image size should be less than 2MB');
-      return;
-    }
-
-    // Convert to base64 for storage
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (isEditing && editingFood) {
-        // Add to images array for editing food (max 3 images)
-        const currentImages = editingFood.images || [];
-        if (currentImages.length >= 3) {
-          showErrorAlert('Limit Reached', 'Maximum 3 images per food item allowed');
-          return;
-        }
-        
-        setEditingFood({
-          ...editingFood,
-          images: [...currentImages, reader.result as string]
-        });
-      } else {
-        // Add to images array for new food (max 3 images)
-        const currentImages = newFood.images || [];
-        if (currentImages.length >= 3) {
-          showErrorAlert('Limit Reached', 'Maximum 3 images per food item allowed');
-          return;
-        }
-        
-        setNewFood({
-          ...newFood,
-          images: [...currentImages, reader.result as string]
-        });
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeImage = (index: number, isEditing: boolean) => {
-    if (isEditing && editingFood) {
-      const newImages = [...(editingFood.images || [])];
-      newImages.splice(index, 1);
-      setEditingFood({
-        ...editingFood,
-        images: newImages
-      });
-    } else {
-      const newImages = [...(newFood.images || [])];
-      newImages.splice(index, 1);
-      setNewFood({
-        ...newFood,
-        images: newImages
-      });
+      toast.error(error.message || 'Failed to delete food item.');
     }
   };
 
@@ -259,10 +334,12 @@ const FoodManagement = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Image</TableHead>
+              <TableHead>Images</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Available</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -271,18 +348,18 @@ const FoodManagement = () => {
               filteredFoods.map((food) => (
                 <TableRow key={food.id}>
                   <TableCell>
-                    {(food.imageUrl || (food.images && food.images.length > 0)) ? (
-                      <div className="relative h-12 w-12">
-                        <img 
-                          src={food.imageUrl || food.images?.[0]} 
-                          alt={food.name} 
-                          className="h-12 w-12 object-cover rounded"
-                        />
-                        {food.images && food.images.length > 1 && (
-                          <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs">
-                            {food.images.length}
-                          </span>
-                        )}
+                    {food.image_urls && food.image_urls.length > 0 ? (
+                      <div className="flex space-x-2">
+                        {food.image_urls.map((url, index) => (
+                          <div key={index} className="relative h-12 w-12">
+                            <img 
+                              src={url} 
+                              alt={`${food.name} ${index + 1}`} 
+                              className="h-12 w-12 object-cover rounded"
+                              onError={(e) => console.error(`Failed to load image: ${url}`)}
+                            />
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="h-12 w-12 bg-muted rounded flex items-center justify-center text-muted-foreground">
@@ -291,10 +368,12 @@ const FoodManagement = () => {
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{food.name}</TableCell>
+                  <TableCell>{food.category || '—'}</TableCell>
                   <TableCell>GHS {food.price.toFixed(2)}</TableCell>
                   <TableCell className="max-w-[200px] truncate">
                     {food.description || '—'}
                   </TableCell>
+                  <TableCell>{food.is_available ? 'Yes' : 'No'}</TableCell>
                   <TableCell className="text-right">
                     <Button 
                       variant="ghost" 
@@ -316,7 +395,7 @@ const FoodManagement = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-4">
+                <TableCell colSpan={7} className="text-center py-4">
                   No food items found.
                 </TableCell>
               </TableRow>
@@ -325,7 +404,6 @@ const FoodManagement = () => {
         </Table>
       </Card>
 
-      {/* Add Food Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -348,6 +426,25 @@ const FoodManagement = () => {
             </div>
             
             <div>
+              <label htmlFor="foodCategory" className="block text-sm font-medium mb-1">
+                Category
+              </label>
+              <select
+                id="foodCategory"
+                value={newFood.category}
+                onChange={(e) => setNewFood({ ...newFood, category: e.target.value })}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select a category</option>
+                {FOOD_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
               <label htmlFor="foodPrice" className="block text-sm font-medium mb-1">
                 Price (GHS) *
               </label>
@@ -357,8 +454,8 @@ const FoodManagement = () => {
                 placeholder="0.00"
                 min="0"
                 step="0.01"
-                value={newFood.price || ''}
-                onChange={(e) => setNewFood({ ...newFood, price: parseFloat(e.target.value) || 0 })}
+                value={newFood.price}
+                onChange={(e) => setNewFood({ ...newFood, price: e.target.value })}
               />
             </div>
             
@@ -369,7 +466,7 @@ const FoodManagement = () => {
               <Textarea
                 id="foodDescription"
                 placeholder="Describe the food item"
-                value={newFood.description || ''}
+                value={newFood.description}
                 onChange={(e) => setNewFood({ ...newFood, description: e.target.value })}
                 rows={3}
               />
@@ -383,19 +480,19 @@ const FoodManagement = () => {
                 id="foodImage"
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={(e) => handleImageUpload(e, false)}
-                disabled={newFood.images && newFood.images.length >= 3}
               />
               
-              {/* Display uploaded images */}
-              {newFood.images && newFood.images.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {newFood.images.map((image, index) => (
-                    <div key={index} className="relative">
+              {newFood.image_urls && newFood.image_urls.length > 0 && (
+                <div className="mt-2 flex space-x-2">
+                  {newFood.image_urls.map((url, index) => (
+                    <div key={index} className="relative h-16 w-16">
                       <img 
-                        src={image} 
+                        src={url} 
                         alt={`Food preview ${index + 1}`} 
                         className="h-16 w-16 object-cover rounded"
+                        onError={(e) => console.error(`Failed to load image: ${url}`)}
                       />
                       <button 
                         type="button"
@@ -409,6 +506,16 @@ const FoodManagement = () => {
                 </div>
               )}
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Available
+              </label>
+              <Switch
+                checked={newFood.is_available}
+                onCheckedChange={(checked) => setNewFood({ ...newFood, is_available: checked })}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -419,7 +526,6 @@ const FoodManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Food Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -444,6 +550,25 @@ const FoodManagement = () => {
               </div>
               
               <div>
+                <label htmlFor="editFoodCategory" className="block text-sm font-medium mb-1">
+                  Category
+                </label>
+                <select
+                  id="editFoodCategory"
+                  value={editingFood.category || ''}
+                  onChange={(e) => setEditingFood({ ...editingFood, category: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select a category</option>
+                  {FOOD_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
                 <label htmlFor="editFoodPrice" className="block text-sm font-medium mb-1">
                   Price (GHS) *
                 </label>
@@ -453,8 +578,8 @@ const FoodManagement = () => {
                   placeholder="0.00"
                   min="0"
                   step="0.01"
-                  value={editingFood.price || ''}
-                  onChange={(e) => setEditingFood({ ...editingFood, price: parseFloat(e.target.value) || 0 })}
+                  value={editingFood.price}
+                  onChange={(e) => setEditingFood({ ...editingFood, price: e.target.value })}
                 />
               </div>
               
@@ -479,19 +604,19 @@ const FoodManagement = () => {
                   id="editFoodImage"
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={(e) => handleImageUpload(e, true)}
-                  disabled={(editingFood.images || []).length >= 3}
                 />
                 
-                {/* Display uploaded images */}
-                {editingFood.images && editingFood.images.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {editingFood.images.map((image, index) => (
-                      <div key={index} className="relative">
+                {editingFood.image_urls && editingFood.image_urls.length > 0 && (
+                  <div className="mt-2 flex space-x-2">
+                    {editingFood.image_urls.map((url, index) => (
+                      <div key={index} className="relative h-16 w-16">
                         <img 
-                          src={image} 
+                          src={url} 
                           alt={`Food preview ${index + 1}`} 
                           className="h-16 w-16 object-cover rounded"
+                          onError={(e) => console.error(`Failed to load image: ${url}`)}
                         />
                         <button 
                           type="button"
@@ -503,22 +628,17 @@ const FoodManagement = () => {
                       </div>
                     ))}
                   </div>
-                ) : editingFood.imageUrl ? (
-                  <div className="mt-2 relative">
-                    <img 
-                      src={editingFood.imageUrl} 
-                      alt="Food preview" 
-                      className="h-16 w-16 object-cover rounded"
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setEditingFood({ ...editingFood, imageUrl: '' })}
-                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ) : null}
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Available
+                </label>
+                <Switch
+                  checked={editingFood.is_available}
+                  onCheckedChange={(checked) => setEditingFood({ ...editingFood, is_available: checked })}
+                />
               </div>
             </div>
           )}
@@ -534,7 +654,6 @@ const FoodManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>

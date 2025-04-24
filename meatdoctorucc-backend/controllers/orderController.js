@@ -1,9 +1,13 @@
-const supabase = require('../config/supabase');
+const { supabase } = require('../config/supabase');
 const { sendSMS } = require('../utils/sendSMS');
 const { v4: uuidv4 } = require('uuid');
 
 const createOrder = async (req, res, next) => {
   try {
+    if (!supabase) {
+      throw new Error('Supabase client is not initialized');
+    }
+
     const {
       foodId,
       quantity,
@@ -71,6 +75,10 @@ const createOrder = async (req, res, next) => {
 
 const updateOrder = async (req, res, next) => {
   try {
+    if (!supabase) {
+      throw new Error('Supabase client is not initialized');
+    }
+
     const { id } = req.params;
     const { orderStatus } = req.body;
 
@@ -109,6 +117,10 @@ const updateOrder = async (req, res, next) => {
 
 const getOrders = async (req, res, next) => {
   try {
+    if (!supabase) {
+      throw new Error('Supabase client is not initialized');
+    }
+
     const { status, orderId } = req.query;
     let query = supabase
       .from('orders')
@@ -140,6 +152,10 @@ const getOrders = async (req, res, next) => {
 
 const deleteOrder = async (req, res, next) => {
   try {
+    if (!supabase) {
+      throw new Error('Supabase client is not initialized');
+    }
+
     const { id } = req.params;
 
     const { error } = await supabase
@@ -157,6 +173,10 @@ const deleteOrder = async (req, res, next) => {
 
 const trackOrder = async (req, res, next) => {
   try {
+    if (!supabase) {
+      throw new Error('Supabase client is not initialized');
+    }
+
     const { orderId } = req.params;
 
     const { data, error } = await supabase

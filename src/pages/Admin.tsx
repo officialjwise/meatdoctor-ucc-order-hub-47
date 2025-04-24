@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -6,25 +5,33 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { isAdminAuthenticated } from '@/lib/storage';
+
+const BACKEND_URL = 'http://localhost:4000';
 
 const Admin = () => {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   
   useEffect(() => {
     // Redirect to dashboard if already authenticated
-    if (isAdminAuthenticated()) {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
       navigate('/admin/dashboard');
     }
   }, [navigate]);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email.trim()) {
       toast.error('Please enter your email address');
+      return;
+    }
+
+    if (!password.trim()) {
+      toast.error('Please enter your password');
       return;
     }
     
@@ -37,22 +44,39 @@ const Admin = () => {
     
     setLoading(true);
     
-    // Simulate OTP sending
-    setTimeout(() => {
-      localStorage.setItem('tempAdminEmail', email);
-      
-      // Simulate OTP sending with console log
-      console.log('Email Notification:', {
-        to: email,
-        subject: 'MeatDoctorUcc Admin OTP',
-        body: 'Your OTP for MeatDoctorUcc admin access is: 123456'
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
-      
-      toast.success('OTP has been sent to your email. For demo purposes, use 123456');
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          if (response.status === 401 && errorData.message === 'Invalid password') {
+            throw new Error('Invalid password');
+          }
+          throw new Error(errorData.message || `Failed to send OTP (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to send OTP (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data = await response.json();
+      toast.success(data.message);
+      localStorage.setItem('tempAdminEmail', email);
+      localStorage.setItem('tempAdminPassword', password);
       navigate('/admin/otp');
-      
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      toast.error(error.message || 'Failed to send OTP. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
   
   return (
@@ -61,7 +85,7 @@ const Admin = () => {
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
           <CardDescription>
-            Enter your email to receive an OTP
+            Enter your email and password to receive an OTP
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -74,6 +98,17 @@ const Admin = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                placeholder="Enter your password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>

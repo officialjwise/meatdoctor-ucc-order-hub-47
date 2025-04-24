@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,59 +21,87 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { getPaymentModes, savePaymentMode, deletePaymentMode, PaymentMode } from '@/lib/storage';
 import Sweetalert2 from 'sweetalert2';
 
+const BACKEND_URL = 'http://localhost:4000';
+
 const PaymentMethodManagement = () => {
-  const [paymentModes, setPaymentModes] = useState<PaymentMode[]>([]);
+  const [paymentModes, setPaymentModes] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentMethod, setCurrentMethod] = useState<PaymentMode | null>(null);
+  const [currentMethod, setCurrentMethod] = useState(null);
   
   // New payment method form state
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    active: true
+    is_active: true,
   });
   
   useEffect(() => {
     loadPaymentMethods();
   }, []);
   
-  const loadPaymentMethods = () => {
-    const methods = getPaymentModes();
-    setPaymentModes(methods);
+  const loadPaymentMethods = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/payment-methods`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch payment methods (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to fetch payment methods (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data = await response.json();
+      setPaymentModes(data);
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      Sweetalert2.fire(
+        'Error',
+        error.message || 'Failed to load payment methods.',
+        'error'
+      );
+    }
   };
   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleSwitchChange = (checked: boolean) => {
-    setFormData(prev => ({ ...prev, active: checked }));
+  const handleSwitchChange = (checked) => {
+    setFormData(prev => ({ ...prev, is_active: checked }));
   };
   
   const resetForm = () => {
     setFormData({
       name: '',
       description: '',
-      active: true
+      is_active: true,
     });
     setCurrentMethod(null);
   };
   
-  const handleEdit = (method: PaymentMode) => {
+  const handleEdit = (method) => {
     setCurrentMethod(method);
     setFormData({
       name: method.name,
       description: method.description || '',
-      active: method.active
+      is_active: method.is_active,
     });
     setOpenDialog(true);
   };
   
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id) => {
     const result = await Sweetalert2.fire({
       title: 'Are you sure?',
       text: "You won't be able to revert this!",
@@ -86,54 +113,93 @@ const PaymentMethodManagement = () => {
     });
     
     if (result.isConfirmed) {
-      const success = deletePaymentMode(id);
-      if (success) {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/payment-methods/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          },
+        });
+
+        if (!response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Failed to delete payment method (Status: ${response.status})`);
+          } else {
+            throw new Error(`Failed to delete payment method (Status: ${response.status}) - Unexpected response format`);
+          }
+        }
+
         loadPaymentMethods();
         Sweetalert2.fire(
           'Deleted!',
           'Payment method has been deleted.',
           'success'
         );
-      } else {
+      } catch (error) {
+        console.error('Error deleting payment method:', error);
         Sweetalert2.fire(
           'Error',
-          'Failed to delete payment method.',
+          error.message || 'Failed to delete payment method.',
           'error'
         );
       }
     }
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
-      const paymentMethodData: PaymentMode = {
-        id: currentMethod?.id || 0,
+      const paymentMethodData = {
         name: formData.name,
-        description: formData.description,
-        active: formData.active
+        description: formData.description || null,
+        is_active: formData.is_active,
       };
-      
-      savePaymentMode(paymentMethodData);
+
+      const url = currentMethod
+        ? `${BACKEND_URL}/api/payment-methods/${currentMethod.id}`
+        : `${BACKEND_URL}/api/payment-methods`;
+      const method = currentMethod ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify(paymentMethodData),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to ${currentMethod ? 'update' : 'add'} payment method (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to ${currentMethod ? 'update' : 'add'} payment method (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
       loadPaymentMethods();
-      
       Sweetalert2.fire({
         title: 'Success!',
         text: `Payment method ${currentMethod ? 'updated' : 'added'} successfully.`,
         icon: 'success',
         timer: 2000,
         timerProgressBar: true,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
-      
+
       resetForm();
       setOpenDialog(false);
     } catch (error) {
       console.error('Error saving payment method:', error);
       Sweetalert2.fire(
         'Error',
-        'Failed to save payment method.',
+        error.message || `Failed to ${currentMethod ? 'update' : 'add'} payment method.`,
         'error'
       );
     }
@@ -180,11 +246,11 @@ const PaymentMethodManagement = () => {
               
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="active"
-                  checked={formData.active}
+                  id="is_active"
+                  checked={formData.is_active}
                   onCheckedChange={handleSwitchChange}
                 />
-                <Label htmlFor="active">Active</Label>
+                <Label htmlFor="is_active">Active</Label>
               </div>
               
               <DialogFooter>
@@ -202,11 +268,11 @@ const PaymentMethodManagement = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {paymentModes.map((method) => (
-          <Card key={method.id} className={method.active ? 'border-primary/30' : 'opacity-70'}>
+          <Card key={method.id} className={method.is_active ? 'border-primary/30' : 'opacity-70'}>
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
                 <span>{method.name}</span>
-                {method.active ? (
+                {method.is_active ? (
                   <span className="text-xs font-medium py-1 px-2 bg-green-100 text-green-800 rounded-full dark:bg-green-900 dark:text-green-100">
                     Active
                   </span>

@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { getSiteSettings, updateSiteSettings, SiteSettings } from '@/lib/storage';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
-import Sweetalert2 from 'sweetalert2';
 
 const SettingsPanel = () => {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({

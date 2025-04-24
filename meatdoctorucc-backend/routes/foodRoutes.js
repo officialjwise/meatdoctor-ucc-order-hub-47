@@ -18,6 +18,6 @@ router.get('/', getFoods);
 router.post('/', authMiddleware, validateFood, validate, createFood);
 router.put('/:id', authMiddleware, updateFood);
 router.delete('/:id', authMiddleware, deleteFood);
-router.post('/upload-image', authMiddleware, upload.single('image'), uploadFoodImage);
-
+//router.post('/upload-image', authMiddleware, upload.single('image'), uploadFoodImage);
+router.post('/upload-image', authMiddleware, upload.array('images', 3), uploadFoodImage);
 module.exports = router; 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -6,27 +5,31 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { createAdminSession } from '@/lib/storage';
+
+const BACKEND_URL = 'http://localhost:4000';
 
 const AdminOTP = () => {
   const [otp, setOtp] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Get the email from localStorage
+    // Get the email and password from localStorage
     const tempEmail = localStorage.getItem('tempAdminEmail');
+    const tempPassword = localStorage.getItem('tempAdminPassword');
     
-    if (!tempEmail) {
-      // No email found, redirect to login
+    if (!tempEmail || !tempPassword) {
+      // No email or password found, redirect to login
       navigate('/admin');
       return;
     }
     
     setEmail(tempEmail);
+    setPassword(tempPassword);
     
     // Set up countdown timer
     const timer = setInterval(() => {
@@ -43,7 +46,7 @@ const AdminOTP = () => {
     return () => clearInterval(timer);
   }, [navigate]);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!otp.trim()) {
@@ -53,40 +56,74 @@ const AdminOTP = () => {
     
     setLoading(true);
     
-    // For demo purposes, accept '123456' as the OTP
-    setTimeout(() => {
-      if (otp === '123456') {
-        // Create admin session
-        createAdminSession(email);
-        
-        toast.success('Login successful');
-        navigate('/admin/dashboard');
-      } else {
-        toast.error('Invalid OTP. For demo purposes, use 123456');
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, otp }),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          if (response.status === 401 && errorData.message === 'Invalid password') {
+            throw new Error('Invalid password');
+          }
+          throw new Error(errorData.message || `Invalid OTP (Status: ${response.status})`);
+        } else {
+          throw new Error(`Invalid OTP (Status: ${response.status}) - Unexpected response format`);
+        }
       }
-      
+
+      const data = await response.json();
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('tokenExpiry', (new Date().getTime() + 60 * 60 * 1000).toString()); // 1 hour expiry
+      localStorage.removeItem('tempAdminEmail');
+      localStorage.removeItem('tempAdminPassword');
+      toast.success(data.message);
+      navigate('/admin/dashboard');
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      toast.error(error.message || 'Invalid OTP. Please try again or resend OTP.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
   
-  const handleResendOTP = () => {
+  const handleResendOTP = async () => {
     if (!canResend) return;
     
     setLoading(true);
     
-    // Simulate OTP resending
-    setTimeout(() => {
-      console.log('Email Notification:', {
-        to: email,
-        subject: 'MeatDoctorUcc Admin OTP',
-        body: 'Your OTP for MeatDoctorUcc admin access is: 123456'
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
-      
-      toast.success('OTP has been resent. For demo purposes, use 123456');
-      
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          if (response.status === 401 && errorData.message === 'Invalid password') {
+            throw new Error('Invalid password');
+          }
+          throw new Error(errorData.message || `Failed to resend OTP (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to resend OTP (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data = await response.json();
+      toast.success(data.message);
       setCountdown(30);
       setCanResend(false);
-      setLoading(false);
       
       // Set up countdown timer again
       const timer = setInterval(() => {
@@ -101,7 +138,12 @@ const AdminOTP = () => {
       }, 1000);
       
       return () => clearInterval(timer);
-    }, 1000);
+    } catch (error) {
+      console.error('Error resending OTP:', error);
+      toast.error(error.message || 'Failed to resend OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (
@@ -127,9 +169,6 @@ const AdminOTP = () => {
                 inputMode="numeric"
                 aria-label="OTP input"
               />
-              <p className="text-sm text-gray-500 text-center">
-                For demo purposes, use <span className="font-medium">123456</span>
-              </p>
             </div>
             <Button 
               type="submit" 

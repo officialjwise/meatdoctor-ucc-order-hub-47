@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Table, 
@@ -28,46 +27,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { BellRing } from 'lucide-react';
-import { Booking, updateBooking, deleteBooking, getBookings } from '@/lib/storage';
-import { showSuccessAlert, showErrorAlert, showConfirmationAlert } from '@/lib/alerts';
-import { initNotificationSound, playNotificationSound, checkForNewOrders } from '@/lib/notifications';
 import { toast } from "sonner";
 
-interface BookingsTableProps {
-  bookings: Booking[];
-  onBookingsUpdate: () => void;
-}
+const BACKEND_URL = 'http://localhost:4000';
 
-const BookingsTable: React.FC<BookingsTableProps> = ({ 
-  bookings, 
-  onBookingsUpdate 
-}) => {
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+const BookingsTable = ({ bookings, onBookingsUpdate }) => {
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("");
-  const [editedStatus, setEditedStatus] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
+  const [editedStatus, setEditedStatus] = useState("");
   const [previousBookingsCount, setPreviousBookingsCount] = useState(0);
   const [hasNewNotification, setHasNewNotification] = useState(false);
   
-  // Initialize notification system
   useEffect(() => {
-    initNotificationSound();
     setPreviousBookingsCount(bookings.length);
   }, []);
-  
-  // Check for new bookings
+
   useEffect(() => {
     if (previousBookingsCount > 0 && bookings.length > previousBookingsCount) {
-      // Play sound notification
-      playNotificationSound();
-      
-      // Show visual notification
       setHasNewNotification(true);
-      
-      // Show toast notification
       toast(
         <div className="flex items-center gap-2">
           <BellRing className="h-4 w-4" />
@@ -87,79 +67,65 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
     }
     setPreviousBookingsCount(bookings.length);
   }, [bookings.length]);
-  
-  // Poll for new bookings every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentBookings = getBookings();
-      if (currentBookings.length > bookings.length) {
-        onBookingsUpdate();
-      }
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, [bookings.length, onBookingsUpdate]);
-  
-  // Filter bookings
+
   const filteredBookings = bookings.filter(booking => {
-    // Filter by status
-    if (statusFilter !== "all" && booking.status !== statusFilter) {
+    if (statusFilter !== "all" && booking.order_status !== statusFilter) {
       return false;
     }
-    
-    // Filter by date
     if (dateFilter) {
-      const bookingDate = new Date(booking.createdAt).toISOString().split('T')[0];
+      const bookingDate = new Date(booking.created_at).toISOString().split('T')[0];
       if (bookingDate !== dateFilter) {
         return false;
       }
     }
-    
     return true;
   });
-  
-  const handleViewBooking = (booking: Booking) => {
+
+  const handleViewBooking = (booking) => {
     setSelectedBooking(booking);
     setViewModalOpen(true);
   };
-  
-  const handleEditBooking = (booking: Booking) => {
+
+  const handleEditBooking = (booking) => {
     setSelectedBooking(booking);
-    setEditedStatus(booking.status);
+    setEditedStatus(booking.order_status);
     setEditModalOpen(true);
   };
-  
-  const handleDeleteBooking = async (booking: Booking) => {
-    setSelectedBooking(booking);
-    
-    const result = await showConfirmationAlert(
-      'Delete Booking',
-      `Are you sure you want to delete Order ID: ${booking.id}? This action cannot be undone.`,
-      'Yes, Delete',
-      'Cancel'
-    );
-    
-    if (result.isConfirmed) {
-      deleteBooking(booking.id);
-      showSuccessAlert('Success', 'Booking deleted successfully');
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify({ orderStatus: newStatus }),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to update order status (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to update order status (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      toast.success(`Order ${orderId} status updated to ${newStatus}`);
       onBookingsUpdate();
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast.error(error.message || 'Failed to update order status. Please try again.');
     }
   };
-  
-  const saveBookingEdit = async () => {
-    if (!selectedBooking) return;
-    
-    updateBooking(selectedBooking.id, { status: editedStatus as any });
-    showSuccessAlert('Success', 'Booking status updated successfully');
-    setEditModalOpen(false);
-    onBookingsUpdate();
-  };
-  
-  const getStatusBadgeClass = (status: string) => {
+
+  const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'Pending':
         return 'bg-yellow-100 text-yellow-800';
-      case 'Confirmed':
+      case 'Processing':
         return 'bg-blue-100 text-blue-800';
       case 'Delivered':
         return 'bg-green-100 text-green-800';
@@ -169,10 +135,9 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   return (
     <div className="space-y-4">
-      {/* Header with notification bell */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Order Management</h2>
         <div className="relative">
@@ -198,8 +163,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           </Button>
         </div>
       </div>
-      
-      {/* Filters */}
+
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="w-full sm:w-1/2">
           <Label htmlFor="status-filter">Filter by Status</Label>
@@ -210,13 +174,12 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Confirmed">Confirmed</SelectItem>
+              <SelectItem value="Processing">Processing</SelectItem>
               <SelectItem value="Delivered">Delivered</SelectItem>
               <SelectItem value="Cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        
         <div className="w-full sm:w-1/2">
           <Label htmlFor="date-filter">Filter by Date</Label>
           <div className="flex gap-2">
@@ -238,8 +201,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           </div>
         </div>
       </div>
-      
-      {/* Bookings Table */}
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -257,31 +219,22 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
             {filteredBookings.length > 0 ? (
               filteredBookings.map((booking) => (
                 <TableRow key={booking.id}>
-                  <TableCell className="font-medium">{booking.id}</TableCell>
+                  <TableCell className="font-medium">{booking.order_id}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {booking.food.imageUrl && (
-                        <img 
-                          src={booking.food.imageUrl} 
-                          alt={booking.food.name} 
-                          className="h-8 w-8 rounded-full object-cover border"
-                        />
-                      )}
-                      <span>
-                        {booking.food.name.length > 20 
-                          ? `${booking.food.name.slice(0, 20)}...` 
-                          : booking.food.name}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{booking.location}</TableCell>
-                  <TableCell>{booking.phoneNumber}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(booking.status)}`}>
-                      {booking.status}
+                    <span>
+                      {booking.foods?.name?.length > 20 
+                        ? `${booking.foods.name.slice(0, 20)}...` 
+                        : booking.foods?.name || 'N/A'}
                     </span>
                   </TableCell>
-                  <TableCell>{new Date(booking.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{booking.delivery_location}</TableCell>
+                  <TableCell>{booking.phone_number}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(booking.order_status)}`}>
+                      {booking.order_status}
+                    </span>
+                  </TableCell>
+                  <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button 
@@ -300,15 +253,6 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                       >
                         Edit
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-red-500"
-                        onClick={() => handleDeleteBooking(booking)}
-                        aria-label="Delete booking"
-                      >
-                        Delete
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -323,38 +267,27 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           </TableBody>
         </Table>
       </div>
-      
-      {/* View Modal */}
+
       <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Booking Details</DialogTitle>
             <DialogDescription>
-              Order ID: {selectedBooking?.id}
+              Order ID: {selectedBooking?.order_id}
             </DialogDescription>
           </DialogHeader>
           
           {selectedBooking && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                {selectedBooking.food.imageUrl && (
-                  <div className="col-span-2 flex justify-center mb-2">
-                    <img 
-                      src={selectedBooking.food.imageUrl} 
-                      alt={selectedBooking.food.name} 
-                      className="h-24 w-auto object-cover rounded-md shadow-sm" 
-                    />
-                  </div>
-                )}
-                
                 <div className="font-medium">Food:</div>
-                <div>{selectedBooking.food.name}</div>
+                <div>{selectedBooking.foods?.name || 'N/A'}</div>
                 
                 <div className="font-medium">Quantity:</div>
                 <div>{selectedBooking.quantity}</div>
                 
                 <div className="font-medium">Price:</div>
-                <div>GHS {selectedBooking.food.price * selectedBooking.quantity}</div>
+                <div>GHS {(selectedBooking.foods?.price || 0) * selectedBooking.quantity}</div>
                 
                 {selectedBooking.drink && (
                   <>
@@ -364,33 +297,26 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                 )}
                 
                 <div className="font-medium">Payment Mode:</div>
-                <div>{selectedBooking.paymentMode}</div>
+                <div>{selectedBooking.payment_mode}</div>
                 
                 <div className="font-medium">Location:</div>
-                <div>{selectedBooking.location}</div>
-                
-                {selectedBooking.additionalInfo && (
-                  <>
-                    <div className="font-medium">Additional Info:</div>
-                    <div>{selectedBooking.additionalInfo}</div>
-                  </>
-                )}
+                <div>{selectedBooking.delivery_location}</div>
                 
                 <div className="font-medium">Phone:</div>
-                <div>{selectedBooking.phoneNumber}</div>
+                <div>{selectedBooking.phone_number}</div>
                 
                 <div className="font-medium">Delivery Time:</div>
-                <div>{new Date(selectedBooking.deliveryTime).toLocaleString()}</div>
+                <div>{new Date(selectedBooking.delivery_time).toLocaleString()}</div>
                 
                 <div className="font-medium">Status:</div>
                 <div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(selectedBooking.status)}`}>
-                    {selectedBooking.status}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(selectedBooking.order_status)}`}>
+                    {selectedBooking.order_status}
                   </span>
                 </div>
                 
                 <div className="font-medium">Created At:</div>
-                <div>{new Date(selectedBooking.createdAt).toLocaleString()}</div>
+                <div>{new Date(selectedBooking.created_at).toLocaleString()}</div>
               </div>
             </div>
           )}
@@ -400,14 +326,13 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Edit Modal */}
+
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Booking</DialogTitle>
             <DialogDescription>
-              Update the status for Order ID: {selectedBooking?.id}
+              Update the status for Order ID: {selectedBooking?.order_id}
             </DialogDescription>
           </DialogHeader>
           
@@ -421,7 +346,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Confirmed">Confirmed</SelectItem>
+                    <SelectItem value="Processing">Processing</SelectItem>
                     <SelectItem value="Delivered">Delivered</SelectItem>
                     <SelectItem value="Cancelled">Cancelled</SelectItem>
                   </SelectContent>
@@ -432,7 +357,12 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancel</Button>
-            <Button onClick={saveBookingEdit}>Save Changes</Button>
+            <Button onClick={() => {
+              if (selectedBooking) {
+                handleStatusChange(selectedBooking.id, editedStatus);
+                setEditModalOpen(false);
+              }
+            }}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

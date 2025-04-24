@@ -1,18 +1,29 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const errorMiddleware = require('./middleware/errorMiddleware'); // Import function directly
+const errorMiddleware = require('./middleware/errorMiddleware');
 const authRoutes = require('./routes/authRoutes');
 const foodRoutes = require('./routes/foodRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const logger = require('./utils/logger');
-const supabase = require('./config/supabase');
+const { supabase } = require('./config/supabase');
+const locationsRoutes = require('./routes/locationsRoutes');
+const paymentMethodsRoutes = require('./routes/paymentMethodsRoutes');
+const categoriesRoutes = require('./routes/categoriesRoutes');
+const additionalOptionsRoutes = require('./routes/additionalOptionsRoutes');
 
-dotenv.config(); // Load .env directly
+dotenv.config();
 
 const app = express();
+
+// Enable CORS for all origins (or specify your frontend origin)
+app.use(cors({
+  origin: 'http://localhost:8080',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Middleware
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
@@ -29,6 +40,10 @@ app.use('/api/foods', foodRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/locations', locationsRoutes);
+app.use('/api/payment-methods', paymentMethodsRoutes);
+app.use('/api/categories', categoriesRoutes);
+app.use('/api/additional-options', additionalOptionsRoutes);
 
 app.get('/api/test-supabase', async (req, res) => {
   try {
@@ -47,9 +62,9 @@ app.get('/api/test-supabase', async (req, res) => {
 });
 
 // Error Handling
-app.use(errorMiddleware); // Use function directly
+app.use(errorMiddleware);
 
-const PORT = process.env.PORT || 6000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
 });

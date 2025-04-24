@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,28 +22,18 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
-  getFoods,
-  drinkOptions, 
-  getLocations, 
-  getPaymentModes,
-  saveBooking, 
-  generateOrderId,
-  Booking,
-  Food,
-  Location,
-  PaymentMode
-} from '@/lib/storage';
-import { 
   validateBookingForm, 
   BookingFormData, 
   ValidationResult, 
   formatGhanaPhone 
 } from '@/lib/validation';
-import { initNotificationSound, sendOrderNotificationEmail } from '@/lib/notifications';
 import OrderSummary from './OrderSummary';
 import { useTheme } from '@/hooks/use-theme';
 import ImageGallery from './ImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
+
+// Hardcoded drink options (can be fetched from backend later if needed)
+const drinkOptions = ['Fresh Yogurt', 'Soda', 'Water'];
 
 const BookingForm = () => {
   const { theme } = useTheme();
@@ -63,12 +52,19 @@ const BookingForm = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [orderId, setOrderId] = useState('');
-  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+  const [selectedFood, setSelectedFood] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   
-  const [foodItems, setFoodItems] = useState<Food[]>([]);
-  const [locationItems, setLocationItems] = useState<Location[]>([]);
-  const [paymentModeItems, setPaymentModeItems] = useState<PaymentMode[]>([]);
+  const [foodItems, setFoodItems] = useState<any[]>([]);
+  const [locationItems] = useState([
+    { name: 'UCC New Site', active: true },
+    { name: 'UCC Old Site', active: true },
+    { name: 'Cape Coast Central', active: true }
+  ]);
+  const [paymentModeItems] = useState([
+    { name: 'Mobile Money', active: true },
+    { name: 'Cash on Delivery', active: true }
+  ]);
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
   const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
   const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -77,25 +73,40 @@ const BookingForm = () => {
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   
   useEffect(() => {
-    const foods = getFoods();
-    setFoodItems(foods);
-    
-    const locations = getLocations();
-    setLocationItems(locations);
-    setAvailableLocations(locations
+    // Fetch food items from backend
+    const fetchFoods = async () => {
+      try {
+        const response = await fetch('/api/foods', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch food items');
+        }
+
+        const foods = await response.json();
+        setFoodItems(foods.filter((food: any) => food.active));
+      } catch (err) {
+        console.error('Error fetching food items:', err);
+        showErrorAlert('Error', 'Failed to load food items. Please try again later.');
+      }
+    };
+
+    fetchFoods();
+
+    // Set available locations and payment modes
+    setAvailableLocations(locationItems
       .filter(loc => loc.active)
       .map(loc => loc.name)
     );
     
-    const paymentModes = getPaymentModes();
-    setPaymentModeItems(paymentModes);
-    setAvailablePaymentModes(paymentModes
+    setAvailablePaymentModes(paymentModeItems
       .filter(mode => mode.active)
       .map(mode => mode.name)
     );
-    
-    // Initialize notification sound
-    initNotificationSound();
   }, []);
 
   useEffect(() => {
@@ -106,8 +117,8 @@ const BookingForm = () => {
         setFormData(prev => ({ ...prev, price: food.price }));
         setSelectedFood(food);
         
-        if (food.imageUrl) {
-          setGalleryImages([food.imageUrl]);
+        if (food.image_url) {
+          setGalleryImages([food.image_url]);
         } else {
           setGalleryImages([]);
         }
@@ -166,7 +177,7 @@ const BookingForm = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const validation: ValidationResult = validateBookingForm(formData);
@@ -179,44 +190,44 @@ const BookingForm = () => {
     
     setLoading(true);
     
-    setTimeout(() => {
-      try {
-        const newOrderId = generateOrderId();
-        setOrderId(newOrderId);
-        
-        const booking: Booking = {
-          id: newOrderId,
-          food: selectedFood!,
-          quantity: formData.quantity,
-          drink: formData.drink,
-          paymentMode: formData.paymentMode,
-          location: formData.location,
-          additionalInfo: formData.additionalInfo,
-          phoneNumber: formatGhanaPhone(formData.phoneNumber),
-          deliveryTime: formData.deliveryTime,
-          status: 'Pending',
-          createdAt: new Date().toISOString()
-        };
-        
-        saveBooking(booking);
-        
-        // Send email notification for admin
-        sendOrderNotificationEmail(booking);
-        
-        setShowConfirmation(true);
-        
-        console.log('SMS Notification:', { 
-          to: booking.phoneNumber, 
-          message: `Order #${newOrderId} confirmed. Your MeatDoctorUcc order has been placed and will be delivered at ${booking.deliveryTime}. Thank you!` 
-        });
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error saving booking:', error);
-        showErrorAlert('Order Error', 'An error occurred while processing your order. Please try again.');
-        setLoading(false);
+    try {
+      const orderData = {
+        foodId: formData.foodId.toString(),
+        quantity: formData.quantity,
+        deliveryLocation: formData.location,
+        phoneNumber: formatGhanaPhone(formData.phoneNumber),
+        deliveryTime: new Date(formData.deliveryTime).toISOString(),
+        orderStatus: 'Pending',
+        paymentMode: formData.paymentMode,
+        additionalNotes: formData.additionalInfo,
+        drink: formData.drink
+      };
+
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to place order');
       }
-    }, 1000);
+
+      const order = await response.json();
+      setOrderId(order.order_id);
+      setShowConfirmation(true);
+      
+      // SMS notification is handled by the backend
+      console.log('Order submitted:', order);
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error saving booking:', error);
+      showErrorAlert('Order Error', 'An error occurred while processing your order. Please try again.');
+      setLoading(false);
+    }
   };
 
   const handleCloseConfirmation = () => {
@@ -256,7 +267,7 @@ const BookingForm = () => {
           <div className="relative">
             <Select
               value={formData.foodId.toString() || "0"}
-              onValueChange={(value) => handleSelectChange('foodId', parseInt(value))}
+              onValueChange={(value) => handleSelectChange('foodId', value)}
             >
               <SelectTrigger
                 id="foodId"
@@ -271,10 +282,10 @@ const BookingForm = () => {
                   <SelectItem value="0" disabled>No food items available</SelectItem>
                 ) : (
                   foodItems.map((food) => (
-                    <SelectItem key={food.id} value={food.id.toString()}>
+                    <SelectItem key={food.id} value={food.id}>
                       <div className="flex items-center gap-2">
-                        {food.imageUrl &&
-                          <img src={food.imageUrl} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
+                        {food.image_url &&
+                          <img src={food.image_url} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
                         }
                         <span>{food.name} (GHS {food.price})</span>
                       </div>
@@ -423,12 +434,12 @@ const BookingForm = () => {
           {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
         </div>
 
-        {selectedFood && selectedFood.imageUrl && (
+        {selectedFood && selectedFood.image_url && (
           <div className={`${theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"} cursor-pointer`} onClick={openGallery}>
             <h3 className="text-md font-medium mb-2">Selected Food</h3>
             <div className="flex justify-center mb-2">
               <img 
-                src={selectedFood.imageUrl} 
+                src={selectedFood.image_url} 
                 alt={selectedFood.name} 
                 className="h-32 w-auto object-cover rounded-md hover:opacity-90 transition-opacity" 
               />

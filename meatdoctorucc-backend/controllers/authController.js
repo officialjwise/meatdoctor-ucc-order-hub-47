@@ -1,4 +1,4 @@
-const supabase = require('../config/supabase');
+const { supabase } = require('../config/supabase');
 const { sendEmail } = require('../utils/sendEmail');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -7,6 +7,11 @@ const logger = require('../utils/logger');
 
 const login = async (req, res, next) => {
   try {
+    if (!supabase) {
+      logger.error('Supabase client is not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment variables.');
+      throw new Error('Supabase client is not initialized');
+    }
+
     const { email, password } = req.body;
     logger.info(`Login attempt for: ${email}`);
     if (!email || !password) throw new Error('Email and password are required');
@@ -63,6 +68,11 @@ const login = async (req, res, next) => {
 
 const verifyOtp = async (req, res, next) => {
   try {
+    if (!supabase) {
+      logger.error('Supabase client is not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment variables.');
+      throw new Error('Supabase client is not initialized');
+    }
+
     const { email, otp } = req.body;
     if (!email || !otp) throw new Error('Email and OTP are required');
 
