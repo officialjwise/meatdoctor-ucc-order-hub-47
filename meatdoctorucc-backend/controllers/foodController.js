@@ -6,12 +6,15 @@ const getFoods = async (req, res) => {
   try {
     if (!supabase) {
       logger.error('Supabase client is not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment variables.');
-      throw new Error('Supabase client is not initialized');
+      return res.status(500).json({ message: 'Internal server error: Supabase client not initialized' });
     }
 
     const { data, error } = await supabase
       .from('foods')
-      .select('*')
+      .select(`
+        *,
+        categories!foods_category_id_fkey (name)
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -19,20 +22,109 @@ const getFoods = async (req, res) => {
       return res.status(500).json({ message: 'Failed to fetch foods' });
     }
 
-    return res.status(200).json(data);
+    const normalizedData = data.map(food => ({
+      ...food,
+      category: food.categories?.name || null,
+      additional_option_ids: food.additional_option_ids || [],
+      image_urls: food.image_urls || [],
+    }));
+
+    logger.info(`Successfully fetched ${normalizedData.length} foods`);
+    return res.status(200).json(normalizedData);
   } catch (error) {
-    logger.error(`Error in getFoods: ${error.message}`);
+    logger.error(`Error in getFoods: ${error.message}`, { stack: error.stack });
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+const getPublicFoods = async (req, res) => {
+  try {
+    if (!supabase) {
+      logger.error('Supabase client is not initialized.');
+      throw new Error('Supabase client is not initialized');
+    }
+
+    const { data, error } = await supabase
+      .from('foods')
+      .select(`
+        id,
+        name,
+        price,
+        description,
+        category_id,
+        categories!foods_category_id_fkey (name),
+        additional_option_ids,
+        image_urls,
+        is_available
+      `)
+      .eq('is_available', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      logger.error(`Error fetching public foods: ${error.message}`);
+      return res.status(500).json({ message: 'Failed to fetch foods' });
+    }
+
+    const normalizedData = data.map(food => ({
+      ...food,
+      category: food.categories?.name || null,
+      additional_option_ids: food.additional_option_ids || [],
+      image_urls: food.image_urls || [],
+    }));
+
+    return res.status(200).json(normalizedData);
+  } catch (error) {
+    logger.error(`Error in getPublicFoods: ${error.message}`);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 const createFood = async (req, res) => {
-  const { name, price, description, category, image_urls } = req.body;
+  const { name, price, description, category_id, additional_option_ids, image_urls, is_available } = req.body;
 
   if (!name || typeof price !== 'number' || price <= 0) {
-    logger.warn('Invalid food data provided');
+    logger.warn('Invalid food data: name and a valid price are required');
     return res.status(400).json({ message: 'Name and a valid price are required' });
   }
+
+  if (category_id) {
+    const { data: category, error: categoryError } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', category_id)
+      .single();
+
+    if (categoryError || !category) {
+      logger.warn(`Invalid category_id: ${category_id}`);
+      return res.status(400).json({ message: 'Invalid category ID' });
+    }
+  }
+
+  if (additional_option_ids && additional_option_ids.length > 0) {
+    const { data: options, error: optionsError } = await supabase
+      .from('additional_options')
+      .select('id')
+      .in('id', additional_option_ids);
+
+    if (optionsError) {
+      logger.error(`Error validating additional_option_ids: ${optionsError.message}`);
+      return res.status(500).json({ message: 'Failed to validate additional options' });
+    }
+
+    if (options.length !== additional_option_ids.length) {
+      logger.warn(`Invalid additional_option_ids: ${additional_option_ids}`);
+      return res.status(400).json({ message: 'One or more additional option IDs are invalid' });
+    }
+  }
+
+  const foodData = {
+    name,
+    price,
+    description: description || null,
+    category_id: category_id || null,
+    additional_option_ids: additional_option_ids || [],
+    image_urls: image_urls || [],
+    is_available: is_available || false,
+  };
 
   try {
     if (!supabase) {
@@ -42,23 +134,26 @@ const createFood = async (req, res) => {
 
     const { data, error } = await supabase
       .from('foods')
-      .insert([{ 
-        name, 
-        price, 
-        description: description || null, 
-        category: category || null, 
-        image_urls: image_urls || [], 
-        is_available: false 
-      }])
-      .select();
+      .insert([foodData])
+      .select(`
+        *,
+        categories!foods_category_id_fkey (name)
+      `);
 
     if (error) {
       logger.error(`Error adding food: ${error.message}`);
-      return res.status(500).json({ message: 'Failed to add food' });
+      return res.status(500).json({ message: `Failed to add food: ${error.message}` });
     }
 
+    const normalizedData = data.map(food => ({
+      ...food,
+      category: food.categories?.name || null,
+      additional_option_ids: food.additional_option_ids || [],
+      image_urls: food.image_urls || [],
+    }));
+
     logger.info(`Food added: ${name}`);
-    return res.status(201).json(data[0]);
+    return res.status(201).json(normalizedData[0]);
   } catch (error) {
     logger.error(`Error in createFood: ${error.message}`);
     return res.status(500).json({ message: 'Internal server error' });
@@ -67,20 +162,52 @@ const createFood = async (req, res) => {
 
 const updateFood = async (req, res) => {
   const { id } = req.params;
-  const { name, price, description, category, image_urls, is_available } = req.body;
+  const { name, price, description, category_id, additional_option_ids, image_urls, is_available } = req.body;
 
-  if (!name && !price && description === undefined && category === undefined && image_urls === undefined && is_available === undefined) {
+  if (!name && !price && description === undefined && category_id === undefined && additional_option_ids === undefined && image_urls === undefined && is_available === undefined) {
     logger.warn('No valid fields provided for update');
     return res.status(400).json({ message: 'At least one field must be provided' });
+  }
+
+  if (category_id) {
+    const { data: category, error: categoryError } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', category_id)
+      .single();
+
+    if (categoryError || !category) {
+      logger.warn(`Invalid category_id: ${category_id}`);
+      return res.status(400).json({ message: 'Invalid category ID' });
+    }
+  }
+
+  if (additional_option_ids && additional_option_ids.length > 0) {
+    const { data: options, error: optionsError } = await supabase
+      .from('additional_options')
+      .select('id')
+      .in('id', additional_option_ids);
+
+    if (optionsError) {
+      logger.error(`Error validating additional_option_ids: ${optionsError.message}`);
+      return res.status(500).json({ message: 'Failed to validate additional options' });
+    }
+
+    if (options.length !== additional_option_ids.length) {
+      logger.warn(`Invalid additional_option_ids: ${additional_option_ids}`);
+      return res.status(400).json({ message: 'One or more additional option IDs are invalid' });
+    }
   }
 
   const updates = {};
   if (name) updates.name = name;
   if (typeof price === 'number') updates.price = price;
   if (description !== undefined) updates.description = description;
-  if (category !== undefined) updates.category = category;
+  if (category_id !== undefined) updates.category_id = category_id;
+  if (additional_option_ids !== undefined) updates.additional_option_ids = additional_option_ids;
   if (image_urls !== undefined) updates.image_urls = image_urls;
   if (is_available !== undefined) updates.is_available = is_available;
+  updates.updated_at = new Date().toISOString();
 
   try {
     if (!supabase) {
@@ -88,24 +215,44 @@ const updateFood = async (req, res) => {
       throw new Error('Supabase client is not initialized');
     }
 
-    const { data, error } = await supabase
+    const { error: updateError } = await supabase
       .from('foods')
       .update(updates)
-      .eq('id', id)
-      .select();
+      .eq('id', id);
 
-    if (error) {
-      logger.error(`Error updating food: ${error.message}`);
-      return res.status(500).json({ message: 'Failed to update food' });
+    if (updateError) {
+      logger.error(`Error updating food: ${updateError.message}`);
+      return res.status(500).json({ message: `Failed to update food: ${updateError.message}` });
     }
 
-    if (!data || data.length === 0) {
+    const { data, error: fetchError } = await supabase
+      .from('foods')
+      .select(`
+        *,
+        categories!foods_category_id_fkey (name)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      logger.error(`Error fetching updated food: ${fetchError.message}`);
+      return res.status(500).json({ message: `Failed to fetch updated food: ${fetchError.message}` });
+    }
+
+    if (!data) {
       logger.warn(`Food not found: ${id}`);
       return res.status(404).json({ message: 'Food not found' });
     }
 
+    const normalizedData = {
+      ...data,
+      category: data.categories?.name || null,
+      additional_option_ids: data.additional_option_ids || [],
+      image_urls: data.image_urls || [],
+    };
+
     logger.info(`Food updated: ${id}`);
-    return res.status(200).json(data[0]);
+    return res.status(200).json(normalizedData);
   } catch (error) {
     logger.error(`Error in updateFood: ${error.message}`);
     return res.status(500).json({ message: 'Internal server error' });
@@ -171,7 +318,6 @@ const uploadFoodImage = async (req, res) => {
     for (const file of req.files) {
       const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
 
-      // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('food_images')
         .upload(fileName, file.buffer, {
@@ -183,7 +329,6 @@ const uploadFoodImage = async (req, res) => {
         return res.status(500).json({ message: 'Failed to upload image to storage' });
       }
 
-      // Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('food_images')
         .getPublicUrl(fileName);
@@ -204,4 +349,4 @@ const uploadFoodImage = async (req, res) => {
   }
 };
 
-module.exports = { getFoods, createFood, updateFood, deleteFood, uploadFoodImage };
+module.exports = { getFoods, getPublicFoods, createFood, updateFood, deleteFood, uploadFoodImage };

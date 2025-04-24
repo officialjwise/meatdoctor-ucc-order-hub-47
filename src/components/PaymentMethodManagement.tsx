@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -34,8 +34,11 @@ const PaymentMethodManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    is_active: true,
+    is_active: true, // Reverted to is_active
   });
+
+  // Ref for the trigger button to manage focus
+  const triggerButtonRef = useRef(null);
   
   useEffect(() => {
     loadPaymentMethods();
@@ -79,14 +82,14 @@ const PaymentMethodManagement = () => {
   };
   
   const handleSwitchChange = (checked) => {
-    setFormData(prev => ({ ...prev, is_active: checked }));
+    setFormData(prev => ({ ...prev, is_active: checked })); // Reverted to is_active
   };
   
   const resetForm = () => {
     setFormData({
       name: '',
       description: '',
-      is_active: true,
+      is_active: true, // Reverted to is_active
     });
     setCurrentMethod(null);
   };
@@ -96,7 +99,7 @@ const PaymentMethodManagement = () => {
     setFormData({
       name: method.name,
       description: method.description || '',
-      is_active: method.is_active,
+      is_active: method.is_active, // Reverted to is_active
     });
     setOpenDialog(true);
   };
@@ -156,7 +159,7 @@ const PaymentMethodManagement = () => {
       const paymentMethodData = {
         name: formData.name,
         description: formData.description || null,
-        is_active: formData.is_active,
+        is_active: formData.is_active, // Reverted to is_active
       };
 
       const url = currentMethod
@@ -204,14 +207,26 @@ const PaymentMethodManagement = () => {
       );
     }
   };
+
+  // Handle dialog close and restore focus
+  const handleOpenChange = (open) => {
+    setOpenDialog(open);
+    if (!open) {
+      // Restore focus to the trigger button when the dialog closes
+      setTimeout(() => {
+        triggerButtonRef.current?.focus();
+      }, 0);
+      resetForm();
+    }
+  };
   
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-medium">Available Payment Methods</h2>
-        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <Dialog open={openDialog} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>Add Payment Method</Button>
+            <Button ref={triggerButtonRef}>Add Payment Method</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -246,8 +261,8 @@ const PaymentMethodManagement = () => {
               
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="is_active"
-                  checked={formData.is_active}
+                  id="is_active" // Reverted to is_active
+                  checked={formData.is_active} // Reverted to is_active
                   onCheckedChange={handleSwitchChange}
                 />
                 <Label htmlFor="is_active">Active</Label>
@@ -268,11 +283,11 @@ const PaymentMethodManagement = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {paymentModes.map((method) => (
-          <Card key={method.id} className={method.is_active ? 'border-primary/30' : 'opacity-70'}>
+          <Card key={method.id} className={method.is_active ? 'border-primary/30' : 'opacity-70'}> {/* Updated to is_active */}
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
                 <span>{method.name}</span>
-                {method.is_active ? (
+                {method.is_active ? ( // Updated to is_active
                   <span className="text-xs font-medium py-1 px-2 bg-green-100 text-green-800 rounded-full dark:bg-green-900 dark:text-green-100">
                     Active
                   </span>

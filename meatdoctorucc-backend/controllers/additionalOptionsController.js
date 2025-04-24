@@ -25,12 +25,36 @@ const getAdditionalOptions = async (req, res) => {
   }
 };
 
-const createAdditionalOption = async (req, res) => {
-  const { name, type } = req.body;
+const getPublicAdditionalOptions = async (req, res) => {
+  try {
+    if (!supabase) {
+      logger.error('Supabase client is not initialized.');
+      throw new Error('Supabase client is not initialized');
+    }
 
-  if (!name || !type) {
-    logger.warn('Invalid additional option data: name and type are required');
-    return res.status(400).json({ message: 'Name and type are required' });
+    const { data, error } = await supabase
+      .from('additional_options')
+      .select('id, name, type, price')
+      .order('name', { ascending: true });
+
+    if (error) {
+      logger.error(`Error fetching public additional options: ${error.message}`);
+      return res.status(500).json({ message: 'Failed to fetch additional options' });
+    }
+
+    return res.status(200).json(data);
+  } catch (error) {
+    logger.error(`Error in getPublicAdditionalOptions: ${error.message}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+const createAdditionalOption = async (req, res) => {
+  const { name, type, price } = req.body;
+
+  if (!name || !type || price === undefined) {
+    logger.warn('Additional option name, type, and price are required');
+    return res.status(400).json({ message: 'Name, type, and price are required' });
   }
 
   try {
@@ -41,7 +65,7 @@ const createAdditionalOption = async (req, res) => {
 
     const { data, error } = await supabase
       .from('additional_options')
-      .insert([{ name, type }])
+      .insert([{ name, type, price }])
       .select();
 
     if (error) {
@@ -49,7 +73,7 @@ const createAdditionalOption = async (req, res) => {
       return res.status(500).json({ message: 'Failed to add additional option' });
     }
 
-    logger.info(`Additional option added: ${name} (${type})`);
+    logger.info(`Additional option added: ${name}`);
     return res.status(201).json(data[0]);
   } catch (error) {
     logger.error(`Error in createAdditionalOption: ${error.message}`);
@@ -59,16 +83,17 @@ const createAdditionalOption = async (req, res) => {
 
 const updateAdditionalOption = async (req, res) => {
   const { id } = req.params;
-  const { name, type } = req.body;
+  const { name, type, price } = req.body;
 
-  if (!name && !type) {
-    logger.warn('No valid fields provided for update');
+  if (!name && !type && price === undefined) {
+    logger.warn('At least one field must be provided for update');
     return res.status(400).json({ message: 'At least one field must be provided' });
   }
 
   const updates = {};
   if (name) updates.name = name;
   if (type) updates.type = type;
+  if (price !== undefined) updates.price = price;
   updates.updated_at = new Date().toISOString();
 
   try {
@@ -111,7 +136,7 @@ const deleteAdditionalOption = async (req, res) => {
     }
 
     const { data: option, error: fetchError } = await supabase
- W      .from('additional_options')
+      .from('additional_options')
       .select('id')
       .eq('id', id)
       .single();
@@ -140,12 +165,13 @@ const deleteAdditionalOption = async (req, res) => {
     return res.status(200).json({ message: 'Additional option deleted successfully' });
   } catch (error) {
     logger.error(`Error in deleteAdditionalOption: ${error.message}`);
-    return res.status(500).json({ message: 'Failed to delete additional option' });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 module.exports = {
   getAdditionalOptions,
+  getPublicAdditionalOptions,
   createAdditionalOption,
   updateAdditionalOption,
   deleteAdditionalOption,

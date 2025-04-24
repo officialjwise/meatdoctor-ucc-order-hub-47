@@ -5,20 +5,24 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { getSiteSettings, updateSiteSettings, SiteSettings } from '@/lib/storage';
-import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
+import Sweetalert2 from 'sweetalert2';
+import { SiteSettings } from '@/lib/types';
+
+const BACKEND_URL = 'http://localhost:4000';
 
 const SettingsPanel = () => {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-    siteName: 'MeatDoctor UCC',
-    siteDescription: 'Your favorite food delivery service',
-    contactEmail: 'contact@meatdoctorucc.com',
-    contactPhone: '+233 20 000 0000',
-    contactAddress: 'Cape Coast, Ghana',
-    bgImageUrl: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?ixlib=rb-1.2.1&auto=format&fit=crop&w=1770&q=80',
-    darkModeEnabled: true,
-    notificationsEnabled: true,
-    footerText: '© 2023 MeatDoctor UCC. All rights reserved.'
+    site_name: 'MeatDoctor UCC',
+    site_description: 'Your favorite food delivery service',
+    contact_email: 'contact@meatdoctorucc.com',
+    contact_phone: '+233 20 000 0000',
+    contact_address: 'Cape Coast, Ghana',
+    background_image_url: 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?ixlib=rb-1.2.1&auto=format&fit=crop&w=1770&q=80',
+    dark_mode_enabled: true,
+    notifications_enabled: true,
+    footer_text: '© 2025 MeatDoctor UCC. All rights reserved.',
+    email_settings: null,
+    sms_settings: null,
   });
   
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -31,13 +35,51 @@ const SettingsPanel = () => {
       import('react-quill/dist/quill.snow.css');
     });
     
-    const settings = getSiteSettings();
-    if (settings) {
-      setSiteSettings(settings);
-      if (settings.bgImageUrl) {
-        setImagePreview(settings.bgImageUrl);
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/settings`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          },
+        });
+
+        if (!response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Failed to fetch settings (Status: ${response.status})`);
+          } else {
+            throw new Error(`Failed to fetch settings (Status: ${response.status}) - Unexpected response format`);
+          }
+        }
+
+        const settings: SiteSettings = await response.json();
+        console.log('Fetched settings:', settings);
+        setSiteSettings({
+          site_name: settings.site_name || 'MeatDoctor UCC',
+          site_description: settings.site_description || 'Your favorite food delivery service',
+          contact_email: settings.contact_email || 'contact@meatdoctorucc.com',
+          contact_phone: settings.contact_phone || '+233 20 000 0000',
+          contact_address: settings.contact_address || 'Cape Coast, Ghana',
+          background_image_url: settings.background_image_url || 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?ixlib=rb-1.2.1&auto=format&fit=crop&w=1770&q=80',
+          dark_mode_enabled: settings.dark_mode_enabled ?? true,
+          notifications_enabled: settings.notifications_enabled ?? true,
+          footer_text: settings.footer_text || '© 2025 MeatDoctor UCC. All rights reserved.',
+          email_settings: settings.email_settings || null,
+          sms_settings: settings.sms_settings || null,
+        });
+        if (settings.background_image_url) {
+          setImagePreview(settings.background_image_url);
+        }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+        Sweetalert2.fire('Error', error.message || 'Failed to load settings.', 'error');
       }
-    }
+    };
+
+    fetchSettings();
   }, []);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,29 +108,119 @@ const SettingsPanel = () => {
     }
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
+      // First, update the settings (excluding the background image)
+      const settingsPayload = {
+        site_name: siteSettings.site_name,
+        site_description: siteSettings.site_description,
+        contact_email: siteSettings.contact_email,
+        contact_phone: siteSettings.contact_phone,
+        contact_address: siteSettings.contact_address,
+        dark_mode_enabled: siteSettings.dark_mode_enabled,
+        notifications_enabled: siteSettings.notifications_enabled,
+        footer_text: siteSettings.footer_text,
+        email_settings: siteSettings.email_settings,
+        sms_settings: siteSettings.sms_settings,
+      };
+
+      console.log('Sending settings payload:', settingsPayload);
+
+      const settingsResponse = await fetch(`${BACKEND_URL}/api/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify(settingsPayload),
+      });
+
+      if (!settingsResponse.ok) {
+        const contentType = settingsResponse.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await settingsResponse.json();
+          throw new Error(errorData.message || `Failed to update settings (Status: ${settingsResponse.status})`);
+        } else {
+          throw new Error(`Failed to update settings (Status: ${settingsResponse.status}) - Unexpected response format`);
+        }
+      }
+
+      const settingsResult = await settingsResponse.json();
+      console.log('Settings update response:', settingsResult);
+
+      // If there's an image file, upload it separately
       if (imageFile) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const updatedSettings = {
-            ...siteSettings,
-            bgImageUrl: reader.result as string
-          };
-          
-          updateSiteSettings(updatedSettings);
-          showSuccessAlert('Success!', 'Settings updated successfully.');
-        };
-        reader.readAsDataURL(imageFile);
-      } else {
-        updateSiteSettings(siteSettings);
-        showSuccessAlert('Success!', 'Settings updated successfully.');
+        const formData = new FormData();
+        formData.append('image', imageFile);
+
+        const uploadResponse = await fetch(`${BACKEND_URL}/api/settings/upload-background`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          },
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          const contentType = uploadResponse.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await uploadResponse.json();
+            throw new Error(errorData.message || `Failed to upload background image (Status: ${uploadResponse.status})`);
+          } else {
+            throw new Error(`Failed to upload background image (Status: ${uploadResponse.status}) - Unexpected response format`);
+          }
+        }
+
+        const uploadData = await uploadResponse.json();
+        console.log('Background image upload response:', uploadData);
+        setSiteSettings(prev => ({ ...prev, background_image_url: uploadData.backgroundImageUrl }));
+        setImagePreview(uploadData.backgroundImageUrl);
+        setImageFile(null);
+      }
+
+      Sweetalert2.fire({
+        title: 'Success',
+        text: 'Settings updated successfully',
+        icon: 'success',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+
+      // Refresh settings to ensure UI reflects the latest data
+      const fetchResponse = await fetch(`${BACKEND_URL}/api/settings`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (fetchResponse.ok) {
+        const updatedSettings: SiteSettings = await fetchResponse.json();
+        console.log('Refreshed settings:', updatedSettings);
+        setSiteSettings({
+          site_name: updatedSettings.site_name || 'MeatDoctor UCC',
+          site_description: updatedSettings.site_description || 'Your favorite food delivery service',
+          contact_email: updatedSettings.contact_email || 'contact@meatdoctorucc.com',
+          contact_phone: updatedSettings.contact_phone || '+233 20 000 0000',
+          contact_address: updatedSettings.contact_address || 'Cape Coast, Ghana',
+          background_image_url: updatedSettings.background_image_url || 'https://images.unsplash.com/photo-1561758033-d89a9ad46330?ixlib=rb-1.2.1&auto=format&fit=crop&w=1770&q=80',
+          dark_mode_enabled: updatedSettings.dark_mode_enabled ?? true,
+          notifications_enabled: updatedSettings.notifications_enabled ?? true,
+          footer_text: updatedSettings.footer_text || '© 2025 MeatDoctor UCC. All rights reserved.',
+          email_settings: updatedSettings.email_settings || null,
+          sms_settings: updatedSettings.sms_settings || null,
+        });
+        if (updatedSettings.background_image_url) {
+          setImagePreview(updatedSettings.background_image_url);
+        }
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      showErrorAlert('Error!', 'Failed to save settings.');
+      Sweetalert2.fire('Error', error.message || 'Failed to save settings.', 'error');
     }
   };
   
@@ -112,23 +244,23 @@ const SettingsPanel = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="siteName">Restaurant Name</Label>
+                <Label htmlFor="site_name">Restaurant Name</Label>
                 <Input
-                  id="siteName"
-                  name="siteName"
-                  value={siteSettings.siteName}
+                  id="site_name"
+                  name="site_name"
+                  value={siteSettings.site_name}
                   onChange={handleInputChange}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="siteDescription">Restaurant Description</Label>
+                <Label htmlFor="site_description">Restaurant Description</Label>
                 <div className="rich-text-container">
                   {ReactQuill ? (
                     <ReactQuill
                       theme="snow"
-                      value={siteSettings.siteDescription}
-                      onChange={(value) => handleRichTextChange('siteDescription', value)}
+                      value={siteSettings.site_description}
+                      onChange={(value) => handleRichTextChange('site_description', value)}
                       style={{ height: '200px', marginBottom: '50px' }}
                       modules={{
                         toolbar: [
@@ -146,13 +278,13 @@ const SettingsPanel = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="footerText">Footer Text</Label>
+                <Label htmlFor="footer_text">Footer Text</Label>
                 <div className="rich-text-container">
                   {ReactQuill ? (
                     <ReactQuill
                       theme="snow"
-                      value={siteSettings.footerText}
-                      onChange={(value) => handleRichTextChange('footerText', value)}
+                      value={siteSettings.footer_text}
+                      onChange={(value) => handleRichTextChange('footer_text', value)}
                       style={{ height: '150px', marginBottom: '50px' }}
                       modules={{
                         toolbar: [
@@ -181,17 +313,18 @@ const SettingsPanel = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="bgImage">Background Image</Label>
+                <Label htmlFor="background_image_url">Background Image</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Input
-                      id="bgImage"
+                      id="background_image_url"
                       type="file"
                       accept="image/*"
                       onChange={handleImageChange}
                     />
                     <p className="text-sm text-muted-foreground mt-1">
                       Upload an image for your website background.
+                    under 5MB.
                     </p>
                   </div>
                   
@@ -210,11 +343,11 @@ const SettingsPanel = () => {
               
               <div className="flex items-center space-x-2 pt-2">
                 <Switch
-                  id="darkMode"
-                  checked={siteSettings.darkModeEnabled}
-                  onCheckedChange={(checked) => handleSwitchChange('darkModeEnabled', checked)}
+                  id="dark_mode_enabled"
+                  checked={siteSettings.dark_mode_enabled}
+                  onCheckedChange={(checked) => handleSwitchChange('dark_mode_enabled', checked)}
                 />
-                <Label htmlFor="darkMode">Enable Dark Mode by Default</Label>
+                <Label htmlFor="dark_mode_enabled">Enable Dark Mode by Default</Label>
               </div>
             </CardContent>
           </Card>
@@ -230,32 +363,32 @@ const SettingsPanel = () => {
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="contactEmail">Email Address</Label>
+                <Label htmlFor="contact_email">Email Address</Label>
                 <Input
-                  id="contactEmail"
-                  name="contactEmail"
+                  id="contact_email"
+                  name="contact_email"
                   type="email"
-                  value={siteSettings.contactEmail}
+                  value={siteSettings.contact_email}
                   onChange={handleInputChange}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="contactPhone">Phone Number</Label>
+                <Label htmlFor="contact_phone">Phone Number</Label>
                 <Input
-                  id="contactPhone"
-                  name="contactPhone"
-                  value={siteSettings.contactPhone}
+                  id="contact_phone"
+                  name="contact_phone"
+                  value={siteSettings.contact_phone}
                   onChange={handleInputChange}
                 />
               </div>
               
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="contactAddress">Address</Label>
+                <Label htmlFor="contact_address">Address</Label>
                 <Input
-                  id="contactAddress"
-                  name="contactAddress"
-                  value={siteSettings.contactAddress}
+                  id="contact_address"
+                  name="contact_address"
+                  value={siteSettings.contact_address}
                   onChange={handleInputChange}
                 />
               </div>
@@ -274,11 +407,11 @@ const SettingsPanel = () => {
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="notifications"
-                  checked={siteSettings.notificationsEnabled}
-                  onCheckedChange={(checked) => handleSwitchChange('notificationsEnabled', checked)}
+                  id="notifications_enabled"
+                  checked={siteSettings.notifications_enabled}
+                  onCheckedChange={(checked) => handleSwitchChange('notifications_enabled', checked)}
                 />
-                <Label htmlFor="notifications">Enable Order Notifications</Label>
+                <Label htmlFor="notifications_enabled">Enable Order Notifications</Label>
               </div>
             </CardContent>
           </Card>

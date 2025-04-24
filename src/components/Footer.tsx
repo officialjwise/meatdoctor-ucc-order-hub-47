@@ -1,36 +1,74 @@
-
 import React, { useState, useEffect } from 'react';
-import { getSiteSettings } from '@/lib/storage';
-import { useTheme } from '@/hooks/use-theme';
+import Sweetalert2 from 'sweetalert2';
+import DOMPurify from 'dompurify';
+
+const BACKEND_URL = 'http://localhost:4000';
 
 const Footer = () => {
-  const { theme } = useTheme();
-  const [footerText, setFooterText] = useState('© 2023 MeatDoctor UCC. All rights reserved.');
-  
-  useEffect(() => {
-    const settings = getSiteSettings();
-    if (settings && settings.footerText) {
-      setFooterText(settings.footerText);
+  const [siteName, setSiteName] = useState('MeatDoctor UCC');
+  const [siteDescription, setSiteDescription] = useState('Your favorite food delivery service');
+  const [footerText, setFooterText] = useState('© 2025 MeatDoctor UCC. All rights reserved.');
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/public/background-image`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Fetch error response:', errorData);
+        throw new Error(
+          `Failed to fetch settings (Status: ${response.status}): ${errorData.slice(0, 200)}`
+        );
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Received non-JSON response: ${text.slice(0, 200)}`);
+      }
+
+      const data = await response.json();
+      console.log('Received data:', data); // Debug: Log the received data
+      
+      // Check if the data contains HTML tags
+      setSiteName(data.siteName || 'MeatDoctor UCC');
+      setSiteDescription(data.siteDescription || 'Your favorite food delivery service');
+      setFooterText(data.footerText || '© 2025 MeatDoctor UCC. All rights reserved.');
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      Sweetalert2.fire({
+        title: 'Error',
+        text: error.message || 'Failed to load site settings. Using defaults.',
+        icon: 'error',
+      });
     }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchSettings, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  // Debug: Check if the text contains HTML tags
+  const containsHTML = (text) => /<[a-z][\s\S]*>/i.test(text);
   
+  console.log('siteDescription contains HTML:', containsHTML(siteDescription));
+  console.log('footerText contains HTML:', containsHTML(footerText));
+
   return (
-    <footer className={`mt-auto py-6 ${theme === 'dark' ? 'bg-gray-900 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="mb-4 md:mb-0">
-            <div className="flex items-center">
-              <h3 className="text-xl font-bold flex items-center">
-                <span className="text-food-primary">Meat</span>Doctor
-                <span className="text-food-secondary">Ucc</span>
-              </h3>
-            </div>
-          </div>
-          
-          <div className="text-sm md:text-base text-center md:text-right" 
-            dangerouslySetInnerHTML={{ __html: footerText }} 
-          />
-        </div>
+    <footer className="bg-gray-800 text-white py-4">
+      <div className="container mx-auto text-center">
+        <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(footerText) }} />
+        <div className="text-sm" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(siteDescription) }} />
       </div>
     </footer>
   );

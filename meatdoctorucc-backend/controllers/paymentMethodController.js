@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 const getPaymentMethods = async (req, res) => {
   try {
     if (!supabase) {
-      logger.error('Supabase client is not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment variables.');
+      logger.error('Supabase client is not initialized.');
       throw new Error('Supabase client is not initialized');
     }
 
@@ -25,27 +25,48 @@ const getPaymentMethods = async (req, res) => {
   }
 };
 
-const createPaymentMethod = async (req, res) => {
-  const { name, description, is_active } = req.body;
-
-  if (!name) {
-    logger.warn('Invalid payment method data: name is required');
-    return res.status(400).json({ message: 'Name is required' });
-  }
-
+const getPublicPaymentModes = async (req, res) => {
   try {
     if (!supabase) {
-      logger.error('Supabase client is not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment variables.');
+      logger.error('Supabase client is not initialized.');
       throw new Error('Supabase client is not initialized');
     }
 
     const { data, error } = await supabase
       .from('payment_methods')
-      .insert([{ 
-        name, 
-        description: description || null, 
-        is_active: is_active !== undefined ? is_active : true 
-      }])
+      .select('id, name, is_active')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      logger.error(`Error fetching public payment modes: ${error.message}`);
+      return res.status(500).json({ message: 'Failed to fetch payment modes' });
+    }
+
+    return res.status(200).json(data);
+  } catch (error) {
+    logger.error(`Error in getPublicPaymentModes: ${error.message}`);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+const createPaymentMethod = async (req, res) => {
+  const { name, is_active, description } = req.body; // Added description
+
+  if (!name) {
+    logger.warn('Payment method name is required');
+    return res.status(400).json({ message: 'Payment method name is required' });
+  }
+
+  try {
+    if (!supabase) {
+      logger.error('Supabase client is not initialized.');
+      throw new Error('Supabase client is not initialized');
+    }
+
+    const { data, error } = await supabase
+      .from('payment_methods')
+      .insert([{ name, is_active: is_active || false, description }]) // Added description
       .select();
 
     if (error) {
@@ -63,22 +84,22 @@ const createPaymentMethod = async (req, res) => {
 
 const updatePaymentMethod = async (req, res) => {
   const { id } = req.params;
-  const { name, description, is_active } = req.body;
+  const { name, is_active, description } = req.body; // Added description
 
-  if (!name && description === undefined && is_active === undefined) {
-    logger.warn('No valid fields provided for update');
+  if (!name && is_active === undefined && description === undefined) { // Added description to the check
+    logger.warn('At least one field must be provided for update');
     return res.status(400).json({ message: 'At least one field must be provided' });
   }
 
   const updates = {};
   if (name) updates.name = name;
-  if (description !== undefined) updates.description = description;
   if (is_active !== undefined) updates.is_active = is_active;
+  if (description !== undefined) updates.description = description; // Added description
   updates.updated_at = new Date().toISOString();
 
   try {
     if (!supabase) {
-      logger.error('Supabase client is not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment variables.');
+      logger.error('Supabase client is not initialized.');
       throw new Error('Supabase client is not initialized');
     }
 
@@ -111,11 +132,11 @@ const deletePaymentMethod = async (req, res) => {
 
   try {
     if (!supabase) {
-      logger.error('Supabase client is not initialized. Check SUPABASE_URL and SUPABASE_SERVICE_KEY in your environment variables.');
+      logger.error('Supabase client is not initialized.');
       throw new Error('Supabase client is not initialized');
     }
 
-    const { data: paymentMethod, error: fetchError } = await supabase
+    const { data: method, error: fetchError } = await supabase
       .from('payment_methods')
       .select('id')
       .eq('id', id)
@@ -126,7 +147,7 @@ const deletePaymentMethod = async (req, res) => {
       return res.status(500).json({ message: 'Failed to delete payment method' });
     }
 
-    if (!paymentMethod) {
+    if (!method) {
       logger.warn(`Payment method not found: ${id}`);
       return res.status(404).json({ message: 'Payment method not found' });
     }
@@ -145,12 +166,13 @@ const deletePaymentMethod = async (req, res) => {
     return res.status(200).json({ message: 'Payment method deleted successfully' });
   } catch (error) {
     logger.error(`Error in deletePaymentMethod: ${error.message}`);
-    return res.status(500).json({ message: 'Failed to delete payment method' });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 module.exports = {
   getPaymentMethods,
+  getPublicPaymentModes,
   createPaymentMethod,
   updatePaymentMethod,
   deletePaymentMethod,

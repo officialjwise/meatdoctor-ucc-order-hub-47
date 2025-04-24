@@ -13,20 +13,20 @@ const locationsRoutes = require('./routes/locationsRoutes');
 const paymentMethodsRoutes = require('./routes/paymentMethodsRoutes');
 const categoriesRoutes = require('./routes/categoriesRoutes');
 const additionalOptionsRoutes = require('./routes/additionalOptionsRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 dotenv.config();
 
 const app = express();
 
-// Enable CORS for all origins (or specify your frontend origin)
+// Enable CORS for your frontend origin
 app.use(cors({
-  origin: 'http://localhost:8080',
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 // Middleware
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
@@ -35,6 +35,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.use('/api', settingsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/foods', foodRoutes);
 app.use('/api/orders', orderRoutes);
@@ -44,6 +45,8 @@ app.use('/api/locations', locationsRoutes);
 app.use('/api/payment-methods', paymentMethodsRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/additional-options', additionalOptionsRoutes);
+app.use('/api/public', publicRoutes);
+
 
 app.get('/api/test-supabase', async (req, res) => {
   try {
@@ -68,3 +71,5 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
 });
+
+module.exports = app;

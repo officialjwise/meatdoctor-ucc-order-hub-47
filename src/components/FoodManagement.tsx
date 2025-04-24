@@ -29,14 +29,16 @@ import {
   Image
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Link } from 'react-router-dom';
 
 const BACKEND_URL = 'http://localhost:4000';
 
-// Predefined categories (you can fetch these from the backend if managed in a separate table)
-const FOOD_CATEGORIES = ['Main Course', 'Dessert', 'Appetizer', 'Beverage', 'Snack'];
-
 const FoodManagement = () => {
   const [foods, setFoods] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [additionalOptions, setAdditionalOptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingFood, setEditingFood] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -48,13 +50,16 @@ const FoodManagement = () => {
     name: '',
     price: '',
     description: '',
-    category: '',
+    category_id: '',
+    additional_option_ids: [],
     image_urls: [],
     is_available: false,
   });
 
   useEffect(() => {
     fetchFoods();
+    fetchCategories();
+    fetchAdditionalOptions();
   }, []);
 
   const fetchFoods = async () => {
@@ -78,7 +83,6 @@ const FoodManagement = () => {
       }
 
       const data = await response.json();
-      // Normalize image_urls: if image_url exists (old schema), convert to image_urls array
       const normalizedData = data.map(food => ({
         ...food,
         image_urls: food.image_urls || (food.image_url ? [food.image_url] : []),
@@ -91,13 +95,57 @@ const FoodManagement = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/categories`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast.error('Failed to load categories.');
+    }
+  };
+
+  const fetchAdditionalOptions = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/additional-options`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch additional options');
+      }
+
+      const data = await response.json();
+      setAdditionalOptions(data);
+    } catch (error) {
+      console.error('Error fetching additional options:', error);
+      toast.error('Failed to load additional options.');
+    }
+  };
+
   const filteredFoods = foods.filter(food => 
     food.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (food.description || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []) as File[];
     if (files.length === 0) return;
 
     if (files.length > 3) {
@@ -115,7 +163,7 @@ const FoodManagement = () => {
     files.forEach(file => formData.append('images', file));
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/foods/upload-image`, {
+      const response = await fetch(`${BACKEND_URL}/api/foods/id/upload-image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
@@ -181,7 +229,8 @@ const FoodManagement = () => {
           name: newFood.name,
           price: price,
           description: newFood.description || null,
-          category: newFood.category || null,
+          category_id: newFood.category_id || null,
+          additional_option_ids: newFood.additional_option_ids,
           image_urls: newFood.image_urls,
           is_available: newFood.is_available,
         }),
@@ -199,7 +248,7 @@ const FoodManagement = () => {
 
       const savedFood = await response.json();
       toast.success(`${savedFood.name} has been added successfully`);
-      setNewFood({ name: '', price: '', description: '', category: '', image_urls: [], is_available: false });
+      setNewFood({ name: '', price: '', description: '', category_id: '', additional_option_ids: [], image_urls: [], is_available: false });
       setIsAddDialogOpen(false);
       fetchFoods();
     } catch (error) {
@@ -213,6 +262,8 @@ const FoodManagement = () => {
       ...food,
       price: food.price.toString(),
       image_urls: food.image_urls || [],
+      category_id: food.category_id || '',
+      additional_option_ids: food.additional_option_ids || [],
       is_available: food.is_available || false,
     });
     setIsEditDialogOpen(true);
@@ -243,7 +294,8 @@ const FoodManagement = () => {
           name: editingFood.name,
           price: price,
           description: editingFood.description || null,
-          category: editingFood.category || null,
+          category_id: editingFood.category_id || null,
+          additional_option_ids: editingFood.additional_option_ids,
           image_urls: editingFood.image_urls,
           is_available: editingFood.is_available,
         }),
@@ -310,12 +362,25 @@ const FoodManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Food Management</h2>
-        <Button 
-          variant="default" 
-          onClick={() => setIsAddDialogOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Add New Food
-        </Button>
+        {categories.length === 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Please add a category before adding food items.
+            </span>
+            <Button variant="default" asChild>
+              <Link to="/admin/dashboard/categories">
+                <Plus className="mr-2 h-4 w-4" /> Add Category
+              </Link>
+            </Button>
+          </div>
+        ) : (
+          <Button 
+            variant="default" 
+            onClick={() => setIsAddDialogOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Add New Food
+          </Button>
+        )}
       </div>
 
       <Card className="p-4">
@@ -339,6 +404,7 @@ const FoodManagement = () => {
               <TableHead>Category</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Additional Options</TableHead>
               <TableHead>Available</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -373,6 +439,14 @@ const FoodManagement = () => {
                   <TableCell className="max-w-[200px] truncate">
                     {food.description || '—'}
                   </TableCell>
+                  <TableCell>
+                    {food.additional_option_ids && food.additional_option_ids.length > 0
+                      ? food.additional_option_ids
+                          .map(id => additionalOptions.find(opt => opt.id === id)?.name)
+                          .filter(name => name)
+                          .join(', ') || '—'
+                      : '—'}
+                  </TableCell>
                   <TableCell>{food.is_available ? 'Yes' : 'No'}</TableCell>
                   <TableCell className="text-right">
                     <Button 
@@ -395,7 +469,7 @@ const FoodManagement = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
+                <TableCell colSpan={8} className="text-center py-4">
                   No food items found.
                 </TableCell>
               </TableRow>
@@ -414,9 +488,9 @@ const FoodManagement = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label htmlFor="foodName" className="block text-sm font-medium mb-1">
+              <Label htmlFor="foodName" className="block text-sm font-medium mb-1">
                 Food Name *
-              </label>
+              </Label>
               <Input
                 id="foodName"
                 placeholder="Enter food name"
@@ -426,28 +500,67 @@ const FoodManagement = () => {
             </div>
             
             <div>
-              <label htmlFor="foodCategory" className="block text-sm font-medium mb-1">
+              <Label htmlFor="foodCategory" className="block text-sm font-medium mb-1">
                 Category
-              </label>
-              <select
-                id="foodCategory"
-                value={newFood.category}
-                onChange={(e) => setNewFood({ ...newFood, category: e.target.value })}
-                className="w-full p-2 border rounded"
+              </Label>
+              <Select
+                onValueChange={(value) => setNewFood({ ...newFood, category_id: value })}
+                value={newFood.category_id}
               >
-                <option value="">Select a category</option>
-                {FOOD_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div>
-              <label htmlFor="foodPrice" className="block text-sm font-medium mb-1">
+              <Label className="block text-sm font-medium mb-1">
+                Additional Options
+              </Label>
+              {additionalOptions.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No additional options available.{' '}
+                  <Link to="/admin/dashboard/additional-options" className="text-primary underline">
+                    Add some here
+                  </Link>.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {additionalOptions.map((option) => (
+                    <div key={option.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`new-option-${option.id}`}
+                        checked={newFood.additional_option_ids.includes(option.id)}
+                        onChange={() => {
+                          setNewFood({
+                            ...newFood,
+                            additional_option_ids: newFood.additional_option_ids.includes(option.id)
+                              ? newFood.additional_option_ids.filter(id => id !== option.id)
+                              : [...newFood.additional_option_ids, option.id],
+                          });
+                        }}
+                      />
+                      <Label htmlFor={`new-option-${option.id}`}>
+                        {option.name} ({option.type})
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <Label htmlFor="foodPrice" className="block text-sm font-medium mb-1">
                 Price (GHS) *
-              </label>
+              </Label>
               <Input
                 id="foodPrice"
                 type="number"
@@ -460,9 +573,9 @@ const FoodManagement = () => {
             </div>
             
             <div>
-              <label htmlFor="foodDescription" className="block text-sm font-medium mb-1">
+              <Label htmlFor="foodDescription" className="block text-sm font-medium mb-1">
                 Description
-              </label>
+              </Label>
               <Textarea
                 id="foodDescription"
                 placeholder="Describe the food item"
@@ -473,9 +586,9 @@ const FoodManagement = () => {
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <Label className="block text-sm font-medium mb-1">
                 Food Images (Max 3)
-              </label>
+              </Label>
               <Input
                 id="foodImage"
                 type="file"
@@ -508,9 +621,9 @@ const FoodManagement = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <Label className="block text-sm font-medium mb-1">
                 Available
-              </label>
+              </Label>
               <Switch
                 checked={newFood.is_available}
                 onCheckedChange={(checked) => setNewFood({ ...newFood, is_available: checked })}
@@ -538,9 +651,9 @@ const FoodManagement = () => {
           {editingFood && (
             <div className="space-y-4 py-4">
               <div>
-                <label htmlFor="editFoodName" className="block text-sm font-medium mb-1">
+                <Label htmlFor="editFoodName" className="block text-sm font-medium mb-1">
                   Food Name *
-                </label>
+                </Label>
                 <Input
                   id="editFoodName"
                   placeholder="Enter food name"
@@ -550,28 +663,67 @@ const FoodManagement = () => {
               </div>
               
               <div>
-                <label htmlFor="editFoodCategory" className="block text-sm font-medium mb-1">
+                <Label htmlFor="editFoodCategory" className="block text-sm font-medium mb-1">
                   Category
-                </label>
-                <select
-                  id="editFoodCategory"
-                  value={editingFood.category || ''}
-                  onChange={(e) => setEditingFood({ ...editingFood, category: e.target.value })}
-                  className="w-full p-2 border rounded"
+                </Label>
+                <Select
+                  onValueChange={(value) => setEditingFood({ ...editingFood, category_id: value })}
+                  value={editingFood.category_id}
                 >
-                  <option value="">Select a category</option>
-                  {FOOD_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div>
-                <label htmlFor="editFoodPrice" className="block text-sm font-medium mb-1">
+                <Label className="block text-sm font-medium mb-1">
+                  Additional Options
+                </Label>
+                {additionalOptions.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    No additional options available.{' '}
+                    <Link to="/admin/dashboard/additional-options" className="text-primary underline">
+                      Add some here
+                    </Link>.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {additionalOptions.map((option) => (
+                      <div key={option.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-option-${option.id}`}
+                          checked={editingFood.additional_option_ids.includes(option.id)}
+                          onChange={() => {
+                            setEditingFood({
+                              ...editingFood,
+                              additional_option_ids: editingFood.additional_option_ids.includes(option.id)
+                                ? editingFood.additional_option_ids.filter(id => id !== option.id)
+                                : [...editingFood.additional_option_ids, option.id],
+                            });
+                          }}
+                        />
+                        <Label htmlFor={`edit-option-${option.id}`}>
+                          {option.name} ({option.type})
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="editFoodPrice" className="block text-sm font-medium mb-1">
                   Price (GHS) *
-                </label>
+                </Label>
                 <Input
                   id="editFoodPrice"
                   type="number"
@@ -584,9 +736,9 @@ const FoodManagement = () => {
               </div>
               
               <div>
-                <label htmlFor="editFoodDescription" className="block text-sm font-medium mb-1">
+                <Label htmlFor="editFoodDescription" className="block text-sm font-medium mb-1">
                   Description
-                </label>
+                </Label>
                 <Textarea
                   id="editFoodDescription"
                   placeholder="Describe the food item"
@@ -597,9 +749,9 @@ const FoodManagement = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <Label className="block text-sm font-medium mb-1">
                   Food Images (Max 3)
-                </label>
+                </Label>
                 <Input
                   id="editFoodImage"
                   type="file"
@@ -632,9 +784,9 @@ const FoodManagement = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <Label className="block text-sm font-medium mb-1">
                   Available
-                </label>
+                </Label>
                 <Switch
                   checked={editingFood.is_available}
                   onCheckedChange={(checked) => setEditingFood({ ...editingFood, is_available: checked })}

@@ -1,63 +1,177 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { useTheme } from '@/hooks/use-theme';
-import { getAnalytics, getBookings } from '@/lib/storage';
+import Sweetalert2 from 'sweetalert2';
+import { Analytics, Booking } from '@/lib/types';
 
-// Extended analytics components with beautiful charts
+const BACKEND_URL = 'http://localhost:4000';
+
 const EnhancedAnalyticsPanel = () => {
   const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('overview');
-  const analytics = getAnalytics();
-  const bookings = getBookings();
+  const [analytics, setAnalytics] = useState<Analytics>({
+    totalBookings: 0,
+    totalRevenue: 0,
+    statusCounts: {},
+    popularFoods: [],
+    popularCategories: [],
+    topLocations: [],
+    paymentModes: [],
+    drinkPreferences: [],
+    ordersByDay: [],
+    detailedFoodData: [],
+    detailedCategoryData: [],
+    detailedLocationData: [],
+  });
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const fetchAnalyticsData = async () => {
+    try {
+      let url = `${BACKEND_URL}/api/analytics`;
+      if (startDate && endDate) {
+        url += `?startDate=${startDate}&endDate=${endDate}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch analytics (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to fetch analytics (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data: Analytics = await response.json();
+      setAnalytics(data);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      Sweetalert2.fire('Error', error.message || 'Failed to load analytics.', 'error');
+    }
+  };
+
+  const fetchBookings = async () => {
+    try {
+      let url = `${BACKEND_URL}/api/orders`;
+      if (startDate && endDate) {
+        url += `?startDate=${startDate}&endDate=${endDate}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch bookings (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to fetch bookings (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data: Booking[] = await response.json();
+      setBookings(data);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      Sweetalert2.fire('Error', error.message || 'Failed to load bookings.', 'error');
+    }
+  };
+
+  const handleFilterSubmit = () => {
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      Sweetalert2.fire('Error', 'Start date cannot be after end date.', 'error');
+      return;
+    }
+    fetchAnalyticsData();
+    fetchBookings();
+  };
+
+  useEffect(() => {
+    fetchAnalyticsData();
+    fetchBookings();
+  }, []);
 
   // Generate monthly order data
   const getMonthlyData = () => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentYear = new Date().getFullYear();
-    
-    // Initialize month buckets with 0 orders
     const monthlyData = months.map(month => ({
       name: month,
       orders: 0,
-      revenue: 0
+      revenue: 0,
     }));
     
-    // Group orders by month
     bookings.forEach(booking => {
-      const date = new Date(booking.createdAt);
-      if (date.getFullYear() === currentYear) {
+      const date = new Date(booking.created_at);
+      if (!startDate || !endDate || (date >= new Date(startDate) && date <= new Date(endDate))) {
         const monthIndex = date.getMonth();
         monthlyData[monthIndex].orders += 1;
         monthlyData[monthIndex].revenue += booking.food.price * booking.quantity;
       }
     });
     
-    return monthlyData;
+    return monthlyData.filter(data => data.orders > 0 || data.revenue > 0);
   };
 
   // Format status data for pie chart
   const getStatusData = () => {
-    const statusCounts = analytics.statusCounts || {};
-    return Object.entries(statusCounts).map(([name, value]) => ({
+    return Object.entries(analytics.statusCounts).map(([name, value]) => ({
       name,
-      value
+      value,
     }));
   };
 
   // Format popular foods data for bar chart
   const getFoodData = () => {
-    return analytics.popularFoods || [];
+    return analytics.popularFoods;
+  };
+
+  // Format popular categories data
+  const getCategoryData = () => {
+    return analytics.popularCategories;
+  };
+
+  // Format top locations data
+  const getLocationData = () => {
+    return analytics.topLocations;
+  };
+
+  // Format payment modes data
+  const getPaymentModeData = () => {
+    return analytics.paymentModes;
+  };
+
+  // Format drink preferences data
+  const getDrinkData = () => {
+    return analytics.drinkPreferences;
+  };
+
+  // Format orders by day data
+  const getOrdersByDayData = () => {
+    return analytics.ordersByDay;
   };
 
   // Colors for charts based on theme
@@ -65,12 +179,16 @@ const EnhancedAnalyticsPanel = () => {
     orders: theme === 'dark' ? '#82ca9d' : '#4caf50',
     revenue: theme === 'dark' ? '#8884d8' : '#3f51b5',
     food: theme === 'dark' ? '#ffbb28' : '#ff9800',
+    category: theme === 'dark' ? '#ff7300' : '#ef6c00',
+    location: theme === 'dark' ? '#00c4b4' : '#26a69a',
+    payment: theme === 'dark' ? '#ab47bc' : '#8e24aa',
+    drink: theme === 'dark' ? '#42a5f5' : '#1e88e5',
     status: {
       Pending: theme === 'dark' ? '#ffbb28' : '#ff9800',
       Confirmed: theme === 'dark' ? '#8884d8' : '#3f51b5',
       Delivered: theme === 'dark' ? '#82ca9d' : '#4caf50',
       Cancelled: theme === 'dark' ? '#ff8042' : '#f44336',
-    }
+    },
   };
 
   // Generate weekly data for a more granular view
@@ -80,26 +198,25 @@ const EnhancedAnalyticsPanel = () => {
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - today.getDay());
     
-    // Initialize day buckets with 0 orders
     const weeklyData = days.map(day => ({
       name: day,
       orders: 0,
-      revenue: 0
+      revenue: 0,
     }));
     
-    // Group orders by day of week
     bookings.forEach(booking => {
-      const date = new Date(booking.createdAt);
-      const dayDiff = Math.floor((date.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (dayDiff >= 0 && dayDiff < 7) {
-        const dayIndex = date.getDay();
-        weeklyData[dayIndex].orders += 1;
-        weeklyData[dayIndex].revenue += booking.food.price * booking.quantity;
+      const date = new Date(booking.created_at);
+      if (!startDate || !endDate || (date >= new Date(startDate) && date <= new Date(endDate))) {
+        const dayDiff = Math.floor((date.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24));
+        if (dayDiff >= 0 && dayDiff < 7) {
+          const dayIndex = date.getDay();
+          weeklyData[dayIndex].orders += 1;
+          weeklyData[dayIndex].revenue += booking.food.price * booking.quantity;
+        }
       }
     });
     
-    return weeklyData;
+    return weeklyData.filter(data => data.orders > 0 || data.revenue > 0);
   };
 
   return (
@@ -107,7 +224,31 @@ const EnhancedAnalyticsPanel = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">Analytics Dashboard</h2>
       </div>
-      
+
+      <div className="flex space-x-4 mb-4">
+        <div>
+          <Label htmlFor="startDate">Start Date</Label>
+          <Input
+            id="startDate"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="endDate">End Date</Label>
+          <Input
+            id="endDate"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button onClick={handleFilterSubmit}>Apply Filter</Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -171,11 +312,15 @@ const EnhancedAnalyticsPanel = () => {
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="daily">Daily</TabsTrigger>
           <TabsTrigger value="monthly">Monthly</TabsTrigger>
           <TabsTrigger value="food">Food Items</TabsTrigger>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="locations">Locations</TabsTrigger>
+          <TabsTrigger value="payment">Payment Modes</TabsTrigger>
+          <TabsTrigger value="drinks">Drink Preferences</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-4">
@@ -300,6 +445,28 @@ const EnhancedAnalyticsPanel = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Orders by Day</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={getOrdersByDayData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar 
+                    dataKey="count" 
+                    fill={chartColors.orders} 
+                    radius={[4, 4, 0, 0]}
+                    barSize={20}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </TabsContent>
         
         <TabsContent value="food" className="space-y-4">
@@ -321,6 +488,223 @@ const EnhancedAnalyticsPanel = () => {
                     barSize={40}
                   />
                 </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Detailed Food Insights</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {analytics.detailedFoodData.map((food, index) => (
+                <details key={index} className="mb-2">
+                  <summary className="cursor-pointer font-medium">
+                    {food.name} (Orders: {food.count}, Revenue: GHS {food.totalRevenue.toFixed(2)})
+                  </summary>
+                  <div className="mt-2 pl-4">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left">Order ID</th>
+                          <th className="text-left">Quantity</th>
+                          <th className="text-left">Location</th>
+                          <th className="text-left">Status</th>
+                          <th className="text-left">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {food.orders.map((order, idx) => (
+                          <tr key={idx}>
+                            <td>{order.order_id}</td>
+                            <td>{order.quantity}</td>
+                            <td>{order.delivery_location}</td>
+                            <td>{order.order_status}</td>
+                            <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="categories" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Popular Categories</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={getCategoryData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar 
+                    dataKey="count" 
+                    fill={chartColors.category} 
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Detailed Category Insights</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {analytics.detailedCategoryData.map((category, index) => (
+                <details key={index} className="mb-2">
+                  <summary className="cursor-pointer font-medium">
+                    {category.name} (Orders: {category.count}, Revenue: GHS {category.totalRevenue.toFixed(2)})
+                  </summary>
+                  <div className="mt-2 pl-4">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left">Order ID</th>
+                          <th className="text-left">Quantity</th>
+                          <th className="text-left">Location</th>
+                          <th className="text-left">Status</th>
+                          <th className="text-left">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {category.orders.map((order, idx) => (
+                          <tr key={idx}>
+                            <td>{order.order_id}</td>
+                            <td>{order.quantity}</td>
+                            <td>{order.delivery_location}</td>
+                            <td>{order.order_status}</td>
+                            <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="locations" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Locations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={getLocationData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar 
+                    dataKey="count" 
+                    fill={chartColors.location} 
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Detailed Location Insights</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {analytics.detailedLocationData.map((location, index) => (
+                <details key={index} className="mb-2">
+                  <summary className="cursor-pointer font-medium">
+                    {location.name} (Orders: {location.count}, Revenue: GHS {location.totalRevenue.toFixed(2)})
+                  </summary>
+                  <div className="mt-2 pl-4">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className="text-left">Order ID</th>
+                          <th className="text-left">Quantity</th>
+                          <th className="text-left">Food</th>
+                          <th className="text-left">Status</th>
+                          <th className="text-left">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {location.orders.map((order, idx) => (
+                          <tr key={idx}>
+                            <td>{order.order_id}</td>
+                            <td>{order.quantity}</td>
+                            <td>{order.food_name}</td>
+                            <td>{order.order_status}</td>
+                            <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payment" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Mode Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={getPaymentModeData()}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill={chartColors.payment}
+                    label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  />
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="drinks" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Drink Preferences</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={getDrinkData()}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill={chartColors.drink}
+                    label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  />
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>

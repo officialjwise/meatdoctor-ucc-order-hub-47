@@ -1,16 +1,31 @@
 const express = require('express');
-const { getLocations, createLocation, updateLocation } = require('../controllers/locationController');
-const { authMiddleware } = require('../middleware/authMiddleware');
-
 const router = express.Router();
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { validate } = require('../middleware/validateMiddleware');
+const { check } = require('express-validator');
+const {
+  getLocations,
+  getPublicLocations,
+  createLocation,
+  updateLocation,
+  deleteLocation,
+} = require('../controllers/locationController');
+const logger = require('../utils/logger');
 
-// Get all locations (public route for now, can add authMiddleware if needed)
-router.get('/', getLocations);
+// Validation middleware for creating/updating locations
+const validateLocation = [
+  check('name').notEmpty().withMessage('Location name is required'),
+  check('is_active').optional().isBoolean().withMessage('Active status must be a boolean'), // Updated to is_active
+  check('description').optional().isString().withMessage('Description must be a string'), // Added validation for description
+];
 
-// Add a new location (admin only)
-router.post('/', authMiddleware, createLocation);
+// Public route: Fetch active locations (no authentication required)
+router.get('/public/locations', getPublicLocations);
 
-// Update a location (admin only)
-router.put('/:id', authMiddleware, updateLocation);
+// Authenticated routes
+router.get('/', authMiddleware, getLocations); // Fetch all locations
+router.post('/', authMiddleware, validateLocation, validate, createLocation); // Create a new location
+router.put('/:id', authMiddleware, validateLocation, validate, updateLocation); // Update a location
+router.delete('/:id', authMiddleware, deleteLocation); // Delete a location
 
 module.exports = router;

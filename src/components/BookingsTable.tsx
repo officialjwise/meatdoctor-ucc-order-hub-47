@@ -42,8 +42,9 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
   const [hasNewNotification, setHasNewNotification] = useState(false);
   
   useEffect(() => {
+    console.log('Bookings data:', bookings);
     setPreviousBookingsCount(bookings.length);
-  }, []);
+  }, [bookings]);
 
   useEffect(() => {
     if (previousBookingsCount > 0 && bookings.length > previousBookingsCount) {
@@ -222,9 +223,9 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
                   <TableCell className="font-medium">{booking.order_id}</TableCell>
                   <TableCell>
                     <span>
-                      {booking.foods?.name?.length > 20 
-                        ? `${booking.foods.name.slice(0, 20)}...` 
-                        : booking.foods?.name || 'N/A'}
+                      {booking.food?.name?.length > 20 
+                        ? `${booking.food.name.slice(0, 20)}...` 
+                        : booking.food?.name || 'N/A'}
                     </span>
                   </TableCell>
                   <TableCell>{booking.delivery_location}</TableCell>
@@ -281,13 +282,23 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div className="font-medium">Food:</div>
-                <div>{selectedBooking.foods?.name || 'N/A'}</div>
+                <div>{selectedBooking.food?.name || 'N/A'}</div>
                 
                 <div className="font-medium">Quantity:</div>
                 <div>{selectedBooking.quantity}</div>
                 
-                <div className="font-medium">Price:</div>
-                <div>GHS {(selectedBooking.foods?.price || 0) * selectedBooking.quantity}</div>
+                {selectedBooking.addonDetails && selectedBooking.addonDetails.length > 0 && (
+                  <>
+                    <div className="font-medium">Addons:</div>
+                    <div>
+                      {selectedBooking.addonDetails.map((addon, index) => (
+                        <div key={index}>
+                          {addon.name} (GHS {addon.price?.toFixed(2)})
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
                 
                 {selectedBooking.drink && (
                   <>
@@ -295,6 +306,9 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
                     <div>{selectedBooking.drink}</div>
                   </>
                 )}
+                
+                <div className="font-medium">Total Price:</div>
+                <div>GHS {selectedBooking.totalPrice?.toFixed(2) || '0.00'}</div>
                 
                 <div className="font-medium">Payment Mode:</div>
                 <div>{selectedBooking.payment_mode}</div>

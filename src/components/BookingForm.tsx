@@ -32,21 +32,20 @@ import { useTheme } from '@/hooks/use-theme';
 import ImageGallery from './ImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
-// Hardcoded drink options (can be fetched from backend later if needed)
-const drinkOptions = ['Fresh Yogurt', 'Soda', 'Water'];
+const BACKEND_URL = 'http://localhost:4000';
 
 const BookingForm = () => {
   const { theme } = useTheme();
   const [formData, setFormData] = useState<BookingFormData>({
-    foodId: 0,
+    foodId: '',
     price: 0,
     quantity: 1,
-    drink: null,
-    paymentMode: 'Mobile Money',
+    paymentMode: 'Cash',
     location: '',
     additionalInfo: '',
     phoneNumber: '',
-    deliveryTime: ''
+    deliveryTime: '',
+    addons: [],
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -56,73 +55,124 @@ const BookingForm = () => {
   const [loading, setLoading] = useState(false);
   
   const [foodItems, setFoodItems] = useState<any[]>([]);
-  const [locationItems] = useState([
-    { name: 'UCC New Site', active: true },
-    { name: 'UCC Old Site', active: true },
-    { name: 'Cape Coast Central', active: true }
-  ]);
-  const [paymentModeItems] = useState([
-    { name: 'Mobile Money', active: true },
-    { name: 'Cash on Delivery', active: true }
-  ]);
+  const [addonOptions, setAddonOptions] = useState<any[]>([]);
+  const [locationItems, setLocationItems] = useState<any[]>([]);
+  const [paymentModeItems, setPaymentModeItems] = useState<any[]>([]);
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
   const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
   const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
   
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  
+
   useEffect(() => {
-    // Fetch food items from backend
     const fetchFoods = async () => {
       try {
-        const response = await fetch('/api/foods', {
-          method: 'GET',
+        const response = await fetch(`${BACKEND_URL}/api/public/foods`, {
           headers: {
             'Content-Type': 'application/json',
-          },
+          }
         });
-
         if (!response.ok) {
-          throw new Error('Failed to fetch food items');
+          throw new Error(`Failed to fetch food items: ${response.status} ${response.statusText}`);
         }
-
         const foods = await response.json();
-        setFoodItems(foods.filter((food: any) => food.active));
+        console.log('Fetched foods:', foods);
+        setFoodItems(foods.filter((food: any) => food.is_available));
       } catch (err) {
         console.error('Error fetching food items:', err);
         showErrorAlert('Error', 'Failed to load food items. Please try again later.');
       }
     };
 
-    fetchFoods();
+    const fetchAddons = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/public/additional-options`);
+        if (!response.ok) throw new Error('Failed to fetch additional options');
+        const options = await response.json();
+        console.log('Fetched additional options:', options);
+        setAddonOptions(options);
+      } catch (err) {
+        console.error('Error fetching addon options:', err);
+        showErrorAlert('Error', 'Failed to load addon options. Please try again later.');
+      }
+    };
 
-    // Set available locations and payment modes
-    setAvailableLocations(locationItems
-      .filter(loc => loc.active)
-      .map(loc => loc.name)
-    );
-    
-    setAvailablePaymentModes(paymentModeItems
-      .filter(mode => mode.active)
-      .map(mode => mode.name)
-    );
+    const fetchLocations = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/public/locations`);
+        if (!response.ok) throw new Error('Failed to fetch locations');
+        const locations = await response.json();
+        console.log('Fetched locations:', locations);
+        setLocationItems(locations);
+        setAvailableLocations(locations
+          .filter((loc: any) => loc.is_active && loc.name && loc.name.trim() !== '')
+          .map((loc: any) => loc.name)
+        );
+      } catch (err) {
+        console.error('Error fetching locations:', err);
+        showErrorAlert('Error', 'Failed to load locations. Please try again later.');
+      }
+    };
+
+    const fetchPaymentModes = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/payment-methods/public/payment-modes`); // Fixed URL
+        if (!response.ok) throw new Error('Failed to fetch payment modes');
+        const modes = await response.json();
+        console.log('Fetched payment modes:', modes);
+        setPaymentModeItems(modes);
+        const availableModes = modes
+          .filter((mode: any) => mode.is_active) // Removed validModes filter
+          .map((mode: any) => mode.name);
+        setAvailablePaymentModes(availableModes);
+        if (availableModes.length > 0 && !formData.paymentMode) {
+          setFormData(prev => ({ ...prev, paymentMode: availableModes[0] }));
+        } else if (availableModes.length === 0) {
+          console.warn('No valid payment modes available');
+          showErrorAlert('Error', 'No valid payment modes available. Please contact support.');
+        }
+      } catch (err) {
+        console.error('Error fetching payment modes:', err);
+        showErrorAlert('Error', 'Failed to load payment modes. Please try again later.');
+      }
+    };
+
+    fetchFoods();
+    fetchAddons();
+    fetchLocations();
+    fetchPaymentModes();
   }, []);
 
   useEffect(() => {
-    if (formData.foodId) {
+    console.log('useEffect triggered with foodId:', formData.foodId, 'foodItems:', foodItems);
+    if (formData.foodId && formData.foodId !== '') {
       const food = foodItems.find(f => f.id === formData.foodId);
+      console.log('Selected food:', food);
       if (food) {
-        // Automatically set the price from the food item
-        setFormData(prev => ({ ...prev, price: food.price }));
+        setFormData(prev => {
+          console.log('Setting price to:', food.price);
+          return { ...prev, price: food.price };
+        });
         setSelectedFood(food);
-        
-        if (food.image_url) {
-          setGalleryImages([food.image_url]);
+        setGalleryImages(food.image_urls || []);
+        if (food.image_urls && food.image_urls.length > 0) {
+          console.log('Opening gallery with images:', food.image_urls);
+          setGalleryOpen(true);
         } else {
-          setGalleryImages([]);
+          console.log('No images to open gallery');
         }
+      } else {
+        console.log('Food not found, resetting');
+        setFormData(prev => ({ ...prev, foodId: '', price: 0 }));
+        setSelectedFood(null);
+        setGalleryImages([]);
       }
+    } else {
+      console.log('foodId is empty, resetting');
+      setFormData(prev => ({ ...prev, price: 0 }));
+      setSelectedFood(null);
+      setGalleryImages([]);
     }
   }, [formData.foodId, foodItems]);
 
@@ -140,8 +190,10 @@ const BookingForm = () => {
   };
 
   const handleSelectChange = (name: string, value: string | number) => {
-    const processedValue = ['foodId', 'price', 'quantity'].includes(name) ? Number(value) : value;
+    console.log(`handleSelectChange called with name: ${name}, value: ${value}`);
+    if (value === '') return;
     
+    const processedValue = ['price', 'quantity'].includes(name) ? Number(value) : value;
     setFormData(prev => ({ ...prev, [name]: processedValue }));
     
     if (errors[name]) {
@@ -170,11 +222,15 @@ const BookingForm = () => {
     }
   };
 
-  const handleDrinkChange = (drink: string) => {
-    setFormData(prev => ({
-      ...prev,
-      drink: prev.drink === drink ? null : drink
-    }));
+  const handleAddonChange = (addonName: string) => {
+    setFormData(prev => {
+      const currentAddons = prev.addons || [];
+      if (currentAddons.includes(addonName)) {
+        return { ...prev, addons: currentAddons.filter(name => name !== addonName) };
+      } else {
+        return { ...prev, addons: [...currentAddons, addonName] };
+      }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -191,19 +247,34 @@ const BookingForm = () => {
     setLoading(true);
     
     try {
+      let deliveryTimeISO;
+      try {
+        const deliveryDate = new Date(formData.deliveryTime);
+        if (isNaN(deliveryDate.getTime())) {
+          throw new Error('Invalid delivery time');
+        }
+        deliveryTimeISO = deliveryDate.toISOString();
+      } catch (err) {
+        console.error('Delivery time conversion error:', err);
+        showErrorAlert('Invalid Delivery Time', 'Please select a valid delivery time.');
+        setLoading(false);
+        return;
+      }
+
       const orderData = {
-        foodId: formData.foodId.toString(),
+        foodId: formData.foodId,
         quantity: formData.quantity,
         deliveryLocation: formData.location,
         phoneNumber: formatGhanaPhone(formData.phoneNumber),
-        deliveryTime: new Date(formData.deliveryTime).toISOString(),
-        orderStatus: 'Pending',
+        deliveryTime: deliveryTimeISO,
         paymentMode: formData.paymentMode,
         additionalNotes: formData.additionalInfo,
-        drink: formData.drink
+        addons: formData.addons,
       };
 
-      const response = await fetch('/api/orders', {
+      console.log('Submitting order:', orderData);
+
+      const response = await fetch(`${BACKEND_URL}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,6 +283,8 @@ const BookingForm = () => {
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+        console.log('Server response error:', errorData);
         throw new Error('Failed to place order');
       }
 
@@ -219,7 +292,6 @@ const BookingForm = () => {
       setOrderId(order.order_id);
       setShowConfirmation(true);
       
-      // SMS notification is handled by the backend
       console.log('Order submitted:', order);
 
       setLoading(false);
@@ -234,17 +306,19 @@ const BookingForm = () => {
     setShowConfirmation(false);
     
     setFormData({
-      foodId: 0,
+      foodId: '',
       price: 0,
       quantity: 1,
-      drink: null,
-      paymentMode: 'Mobile Money',
+      addons: [],
+      paymentMode: (availablePaymentModes[0] as "Mobile Money" | "Cash") || "Cash",
       location: '',
       additionalInfo: '',
       phoneNumber: '',
       deliveryTime: ''
     });
     setSelectedFood(null);
+    setGalleryImages([]);
+    setGalleryOpen(false);
   };
 
   const openGallery = () => {
@@ -266,7 +340,7 @@ const BookingForm = () => {
           <Label htmlFor="foodId" className={theme === "dark" ? "form-label" : ""}>Select Food</Label>
           <div className="relative">
             <Select
-              value={formData.foodId.toString() || "0"}
+              value={formData.foodId || undefined}
               onValueChange={(value) => handleSelectChange('foodId', value)}
             >
               <SelectTrigger
@@ -279,14 +353,14 @@ const BookingForm = () => {
               </SelectTrigger>
               <SelectContent>
                 {foodItems.length === 0 ? (
-                  <SelectItem value="0" disabled>No food items available</SelectItem>
+                  <SelectItem value="no-foods" disabled>No food items available</SelectItem>
                 ) : (
                   foodItems.map((food) => (
                     <SelectItem key={food.id} value={food.id}>
                       <div className="flex items-center gap-2">
-                        {food.image_url &&
-                          <img src={food.image_url} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
-                        }
+                        {food.image_urls && food.image_urls.length > 0 && (
+                          <img src={food.image_urls[0]} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
+                        )}
                         <span>{food.name} (GHS {food.price})</span>
                       </div>
                     </SelectItem>
@@ -330,21 +404,25 @@ const BookingForm = () => {
         </div>
 
         <div className="space-y-2">
-          <Label>Add a Drink (Optional)</Label>
+          <Label>Addons (Optional)</Label>
           <div className="flex flex-wrap gap-4">
-            {drinkOptions.map((drink) => (
-              <div key={drink} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`drink-${drink}`}
-                  checked={formData.drink === drink}
-                  onCheckedChange={() => handleDrinkChange(drink)}
-                  aria-label={`Add ${drink}`}
-                />
-                <Label htmlFor={`drink-${drink}`} className="cursor-pointer">
-                  {drink}
-                </Label>
-              </div>
-            ))}
+            {addonOptions.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No addons available</div>
+            ) : (
+              addonOptions.map((addon) => (
+                <div key={addon.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`addon-${addon.name}`}
+                    checked={(formData.addons || []).includes(addon.name)}
+                    onCheckedChange={() => handleAddonChange(addon.name)}
+                    aria-label={`Add ${addon.name}`}
+                  />
+                  <Label htmlFor={`addon-${addon.name}`} className="cursor-pointer">
+                    {addon.name} (GHS {addon.price})
+                  </Label>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -380,7 +458,7 @@ const BookingForm = () => {
             </SelectTrigger>
             <SelectContent>
               {availableLocations.length === 0 ? (
-                <SelectItem value="" disabled>No locations available</SelectItem>
+                <SelectItem value="no-locations" disabled>No locations available</SelectItem>
               ) : (
                 availableLocations.map((location) => (
                   <SelectItem key={location} value={location}>
@@ -434,18 +512,18 @@ const BookingForm = () => {
           {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
         </div>
 
-        {selectedFood && selectedFood.image_url && (
+        {selectedFood && selectedFood.image_urls && selectedFood.image_urls.length > 0 && (
           <div className={`${theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"} cursor-pointer`} onClick={openGallery}>
             <h3 className="text-md font-medium mb-2">Selected Food</h3>
             <div className="flex justify-center mb-2">
               <img 
-                src={selectedFood.image_url} 
+                src={selectedFood.image_urls[0]} 
                 alt={selectedFood.name} 
                 className="h-32 w-auto object-cover rounded-md hover:opacity-90 transition-opacity" 
               />
             </div>
             <p className="text-center font-medium">{selectedFood.name}</p>
-            <p className="text-center text-sm text-muted-foreground">(Click to view larger image)</p>
+            <p className="text-center text-sm text-muted-foreground">(Click to view larger images)</p>
           </div>
         )}
 
@@ -453,7 +531,11 @@ const BookingForm = () => {
           <OrderSummary 
             food={selectedFood} 
             quantity={formData.quantity} 
-            drink={formData.drink} 
+            addons={formData.addons} 
+            addonPrices={addonOptions.reduce((acc, addon) => {
+              acc[addon.name] = addon.price;
+              return acc;
+            }, {} as Record<string, number>)}
           />
         )}
 
@@ -470,12 +552,12 @@ const BookingForm = () => {
         <DialogContent className={theme === "dark" ? "sm:max-w-md bg-gray-800 text-white" : "sm:max-w-md"}>
           <DialogHeader>
             <DialogTitle className="text-center">Order Confirmed!</DialogTitle>
-            <DialogDescription className="text-center">
-              Your order has been successfully placed.
+            <DialogDescription className="text-center" id="order-confirmation-description">
+              Your order has been successfully placed. Below are the details of your order.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4" aria-describedby="order-confirmation-description">
             <div className="flex flex-col items-center justify-center">
               <p className="font-bold text-xl text-food-primary">Order ID: {orderId}</p>
               <p>Save this ID to track your order status.</p>
@@ -486,8 +568,16 @@ const BookingForm = () => {
                 <h3 className="font-semibold mb-2">Order Details:</h3>
                 <p><span className="font-medium">Food:</span> {selectedFood.name}</p>
                 <p><span className="font-medium">Quantity:</span> {formData.quantity}</p>
-                {formData.drink && <p><span className="font-medium">Drink:</span> {formData.drink}</p>}
-                <p><span className="font-medium">Total Price:</span> GHS {selectedFood.price * formData.quantity}</p>
+                {formData.addons && formData.addons.length > 0 && (
+                  <p><span className="font-medium">Addons:</span> {formData.addons.join(', ')}</p>
+                )}
+                <p><span className="font-medium">Total Price:</span> GHS {(
+                  selectedFood.price * formData.quantity +
+                  (formData.addons || []).reduce((sum, addonName) => {
+                    const addonPrice = addonOptions.find(a => a.name === addonName)?.price || 0;
+                    return sum + addonPrice;
+                  }, 0)
+                ).toFixed(2)}</p>
                 <p><span className="font-medium">Payment:</span> {formData.paymentMode}</p>
                 <p><span className="font-medium">Delivery Location:</span> {formData.location}</p>
                 <p><span className="font-medium">Delivery Time:</span> {new Date(formData.deliveryTime).toLocaleString()}</p>

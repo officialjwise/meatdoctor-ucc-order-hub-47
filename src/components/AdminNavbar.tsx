@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,10 +10,11 @@ import {
   X,
   Utensils,
   MapPin,
-  CreditCard
+  CreditCard,
+  Folder,
+  GlassWater,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { clearAdminSession } from '@/lib/storage';
 import { toast } from "sonner";
 import { cn } from '@/lib/utils';
 
@@ -27,7 +27,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ isMobile }) => {
   const [open, setOpen] = React.useState(false);
   
   const handleLogout = () => {
-    clearAdminSession();
+    localStorage.removeItem('adminToken'); // Inlined clearAdminSession
     toast.success('Logged out successfully');
     navigate('/admin');
   };
@@ -43,6 +43,16 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ isMobile }) => {
       label: 'Food Management',
       icon: <Utensils className="h-5 w-5" />,
       href: '/admin/dashboard/foods'
+    },
+    {
+      label: 'Categories',
+      icon: <Folder className="h-5 w-5" />,
+      href: '/admin/dashboard/categories'
+    },
+    {
+      label: 'Additional Options',
+      icon: <GlassWater className="h-5 w-5" />,
+      href: '/admin/dashboard/additional-options'
     },
     {
       label: 'Location Management',

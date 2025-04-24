@@ -8,6 +8,9 @@ import EnhancedAnalyticsPanel from '@/components/EnhancedAnalyticsPanel';
 import FoodManagement from '@/components/FoodManagement';
 import LocationManagement from '@/components/LocationManagement';
 import PaymentMethodManagement from '@/components/PaymentMethodManagement';
+import CategoryManagement from '@/components/CategoryManagement';
+import AdditionalOptionsManagement from '@/components/AdditionalOptionsManagement';
+
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { toast } from 'sonner';
 import { Bell, LogOut } from 'lucide-react';
@@ -138,6 +141,10 @@ const AdminDashboard = () => {
       return 'Location Management';
     } else if (path.endsWith('/payment-methods')) {
       return 'Payment Methods';
+    } else if (path.endsWith('/categories')) {
+      return 'Category Management';
+    } else if (path.endsWith('/additional-options')) {
+      return 'Additional Options Management';
     } else {
       return 'Bookings Management';
     }
@@ -186,6 +193,8 @@ const AdminDashboard = () => {
               <Route path="foods" element={<FoodManagement />} />
               <Route path="locations" element={<LocationManagement />} />
               <Route path="payment-methods" element={<PaymentMethodManagement />} />
+              <Route path="categories" element={<CategoryManagement />} />
+              <Route path="additional-options" element={<AdditionalOptionsManagement />} />
               <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
             </Routes>
           </div>

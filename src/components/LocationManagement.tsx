@@ -1,6 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
-import { Location, getLocations, saveLocation, deleteLocation } from '@/lib/storage';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,7 +27,17 @@ import {
   MapPin,
   Plus
 } from 'lucide-react';
-import { showSuccessAlert, showErrorAlert, showConfirmationAlert } from '@/lib/alerts';
+import Sweetalert2 from 'sweetalert2';
+
+const BACKEND_URL = 'http://localhost:4000';
+
+// Define the Location interface with is_active and string id
+interface Location {
+  id: string;
+  name: string;
+  description?: string;
+  is_active: boolean;
+}
 
 const LocationManagement = () => {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -38,53 +46,113 @@ const LocationManagement = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [locationToDelete, setLocationToDelete] = useState<number | null>(null);
+  const [locationToDelete, setLocationToDelete] = useState<string | null>(null);
 
   const [newLocation, setNewLocation] = useState<Omit<Location, 'id'>>({
     name: '',
     description: '',
-    active: true,
+    is_active: true, // Updated to is_active
   });
 
-  // Load locations from localStorage
+  // Ref for the trigger button to manage focus
+  const addTriggerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const editTriggerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const deleteTriggerButtonRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // Load locations from the API
   useEffect(() => {
-    setLocations(getLocations());
+    loadLocations();
   }, []);
+
+  const loadLocations = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/locations`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch locations (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to fetch locations (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      const data = await response.json();
+      setLocations(data);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      Sweetalert2.fire(
+        'Error',
+        error.message || 'Failed to load locations.',
+        'error'
+      );
+    }
+  };
 
   const filteredLocations = locations.filter(location => 
     location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    location.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    (location.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
-  const handleAddLocation = () => {
+  const handleAddLocation = async () => {
     // Validate inputs
     if (!newLocation.name.trim()) {
-      showErrorAlert('Required Field Missing', 'Location name is required');
+      Sweetalert2.fire('Required Field Missing', 'Location name is required', 'error');
       return;
     }
 
     try {
-      // Create a new location without ID (will be generated in saveLocation)
-      const savedLocation = saveLocation(newLocation as Location);
-      
-      // Update the locations list
-      setLocations(getLocations());
-      
+      const response = await fetch(`${BACKEND_URL}/api/locations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify({
+          name: newLocation.name,
+          description: newLocation.description || null,
+          is_active: newLocation.is_active,
+        }),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to add location (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to add location (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      // Refresh the locations list
+      await loadLocations();
+
       // Reset form
       setNewLocation({
         name: '',
         description: '',
-        active: true,
+        is_active: true,
       });
-      
-      // Close dialog
-      setIsAddDialogOpen(false);
-      
-      // Show success message
-      showSuccessAlert('Success', `${savedLocation.name} has been added successfully`);
+
+      Sweetalert2.fire({
+        title: 'Success',
+        text: `${newLocation.name} has been added successfully`,
+        icon: 'success',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error('Error saving location:', error);
-      showErrorAlert('Error', 'Failed to add location');
+      Sweetalert2.fire('Error', error.message || 'Failed to add location', 'error');
     }
   };
 
@@ -93,75 +161,176 @@ const LocationManagement = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateLocation = () => {
+  const handleUpdateLocation = async () => {
     if (!editingLocation) return;
 
     // Validate inputs
     if (!editingLocation.name.trim()) {
-      showErrorAlert('Required Field Missing', 'Location name is required');
+      Sweetalert2.fire('Required Field Missing', 'Location name is required', 'error');
       return;
     }
 
     try {
-      // Update the location
-      saveLocation(editingLocation);
-      
-      // Update the locations list
-      setLocations(getLocations());
-      
-      // Close dialog and reset form
-      setIsEditDialogOpen(false);
-      setEditingLocation(null);
-      
-      // Show success message
-      showSuccessAlert('Success', 'Location updated successfully');
+      const response = await fetch(`${BACKEND_URL}/api/locations/${editingLocation.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify({
+          name: editingLocation.name,
+          description: editingLocation.description || null,
+          is_active: editingLocation.is_active,
+        }),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to update location (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to update location (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      // Refresh the locations list
+      await loadLocations();
+
+      Sweetalert2.fire({
+        title: 'Success',
+        text: 'Location updated successfully',
+        icon: 'success',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error('Error updating location:', error);
-      showErrorAlert('Error', 'Failed to update location');
+      Sweetalert2.fire('Error', error.message || 'Failed to update location', 'error');
     }
   };
 
-  const confirmDelete = (id: number) => {
+  const confirmDelete = (id: string) => {
     setLocationToDelete(id);
     setIsDeleteDialogOpen(true);
   };
 
   const handleDeleteLocation = async () => {
-    if (locationToDelete === null) return;
+    if (!locationToDelete) return;
 
     try {
-      const result = deleteLocation(locationToDelete);
-      
-      if (result) {
-        // Update the locations list
-        setLocations(getLocations());
-        showSuccessAlert('Success', 'Location deleted successfully');
-      } else {
-        showErrorAlert('Error', 'Failed to delete location');
+      const response = await fetch(`${BACKEND_URL}/api/locations/${locationToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to delete location (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to delete location (Status: ${response.status}) - Unexpected response format`);
+        }
       }
-      
-      // Close dialog and reset
-      setIsDeleteDialogOpen(false);
-      setLocationToDelete(null);
+
+      // Refresh the locations list
+      await loadLocations();
+
+      Sweetalert2.fire({
+        title: 'Success',
+        text: 'Location deleted successfully',
+        icon: 'success',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error('Error deleting location:', error);
-      showErrorAlert('Error', 'Failed to delete location');
+      Sweetalert2.fire('Error', error.message || 'Failed to delete location', 'error');
     }
   };
 
   const toggleLocationActive = async (location: Location) => {
     const updatedLocation = {
       ...location,
-      active: !location.active
+      is_active: !location.is_active, // Updated to is_active
     };
 
     try {
-      saveLocation(updatedLocation);
-      setLocations(getLocations());
-      showSuccessAlert('Status Updated', `${location.name} is now ${!location.active ? 'active' : 'inactive'}`);
+      const response = await fetch(`${BACKEND_URL}/api/locations/${location.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+        body: JSON.stringify(updatedLocation),
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to update location status (Status: ${response.status})`);
+        } else {
+          throw new Error(`Failed to update location status (Status: ${response.status}) - Unexpected response format`);
+        }
+      }
+
+      // Refresh the locations list
+      await loadLocations();
+
+      Sweetalert2.fire({
+        title: 'Success',
+        text: `${location.name} is now ${!location.is_active ? 'active' : 'inactive'}`,
+        icon: 'success',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
     } catch (error) {
       console.error('Error toggling location status:', error);
-      showErrorAlert('Error', 'Failed to update location status');
+      Sweetalert2.fire('Error', error.message || 'Failed to update location status', 'error');
+    }
+  };
+
+  // Handle dialog close and restore focus
+  const handleAddDialogOpenChange = (open: boolean) => {
+    setIsAddDialogOpen(open);
+    if (!open) {
+      setTimeout(() => {
+        addTriggerButtonRef.current?.focus();
+      }, 0);
+      setNewLocation({
+        name: '',
+        description: '',
+        is_active: true,
+      });
+    }
+  };
+
+  const handleEditDialogOpenChange = (open: boolean) => {
+    setIsEditDialogOpen(open);
+    if (!open) {
+      setTimeout(() => {
+        editTriggerButtonRef.current?.focus();
+      }, 0);
+      setEditingLocation(null);
+    }
+  };
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setIsDeleteDialogOpen(open);
+    if (!open) {
+      const button = deleteTriggerButtonRef.current.get(locationToDelete ?? '');
+      setTimeout(() => {
+        button?.focus();
+      }, 0);
+      setLocationToDelete(null);
     }
   };
 
@@ -172,6 +341,7 @@ const LocationManagement = () => {
         <Button 
           variant="default" 
           onClick={() => setIsAddDialogOpen(true)}
+          ref={addTriggerButtonRef}
         >
           <MapPin className="mr-2 h-4 w-4" /> Add New Location
         </Button>
@@ -186,6 +356,7 @@ const LocationManagement = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8"
+              aria-label="Search locations"
             />
           </div>
         </div>
@@ -209,23 +380,34 @@ const LocationManagement = () => {
                   </TableCell>
                   <TableCell>
                     <Switch
-                      checked={location.active}
+                      checked={location.is_active} // Updated to is_active
                       onCheckedChange={() => toggleLocationActive(location)}
+                      aria-label={`Toggle active status for ${location.name}`}
                     />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      onClick={() => handleEditLocation(location)}
+                      onClick={() => {
+                        handleEditLocation(location);
+                      }}
                       className="mr-2"
+                      aria-label={`Edit ${location.name}`}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => confirmDelete(location.id)}
+                      onClick={() => {
+                        deleteTriggerButtonRef.current.set(location.id, deleteTriggerButtonRef.current.get(location.id) || document.activeElement as HTMLButtonElement);
+                        confirmDelete(location.id);
+                      }}
+                      ref={(el) => {
+                        if (el) deleteTriggerButtonRef.current.set(location.id, el);
+                      }}
+                      aria-label={`Delete ${location.name}`}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -244,7 +426,7 @@ const LocationManagement = () => {
       </Card>
 
       {/* Add Location Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <Dialog open={isAddDialogOpen} onOpenChange={handleAddDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Location</DialogTitle>
@@ -262,6 +444,7 @@ const LocationManagement = () => {
                 placeholder="Enter location name"
                 value={newLocation.name}
                 onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
+                aria-required="true"
               />
             </div>
             
@@ -281,8 +464,9 @@ const LocationManagement = () => {
             <div className="flex items-center space-x-2">
               <Switch
                 id="locationActive"
-                checked={newLocation.active}
-                onCheckedChange={(checked) => setNewLocation({ ...newLocation, active: checked })}
+                checked={newLocation.is_active} // Updated to is_active
+                onCheckedChange={(checked) => setNewLocation({ ...newLocation, is_active: checked })}
+                aria-label="Toggle active status for new location"
               />
               <label htmlFor="locationActive" className="text-sm font-medium">
                 Active
@@ -302,7 +486,7 @@ const LocationManagement = () => {
       </Dialog>
 
       {/* Edit Location Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Location</DialogTitle>
@@ -322,6 +506,7 @@ const LocationManagement = () => {
                   placeholder="Enter location name"
                   value={editingLocation.name}
                   onChange={(e) => setEditingLocation({ ...editingLocation, name: e.target.value })}
+                  aria-required="true"
                 />
               </div>
               
@@ -341,10 +526,11 @@ const LocationManagement = () => {
               <div className="flex items-center space-x-2">
                 <Switch
                   id="editLocationActive"
-                  checked={editingLocation.active}
+                  checked={editingLocation.is_active} // Updated to is_active
                   onCheckedChange={(checked) => 
-                    setEditingLocation({ ...editingLocation, active: checked })
+                    setEditingLocation({ ...editingLocation, is_active: checked })
                   }
+                  aria-label={`Toggle active status for ${editingLocation.name}`}
                 />
                 <label htmlFor="editLocationActive" className="text-sm font-medium">
                   Active
@@ -365,7 +551,7 @@ const LocationManagement = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
