@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -48,6 +49,6 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
     },
   },
   define: {
-    __WS_TOKEN__: JSON.stringify(process.env.WS_TOKEN || ''),  // Add this line
+    'process.env.PAYSTACK_PUBLIC_KEY': JSON.stringify(process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2'),
   },
 }));
