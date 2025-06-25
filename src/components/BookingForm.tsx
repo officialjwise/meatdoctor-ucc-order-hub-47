@@ -1,370 +1,645 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Clock, MapPin, Utensils, Plus } from 'lucide-react';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { 
+  validateBookingForm, 
+  BookingFormData, 
+  ValidationResult, 
+  formatGhanaPhone 
+} from '@/lib/validation';
+import OrderSummary from './OrderSummary';
+import { useTheme } from '@/hooks/use-theme';
+import ImageGallery from './ImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
-import PhoneNumberInput from './PhoneNumberInput';
 
-import { Food, Location, PaymentMethod } from '@/lib/types';
-import supabase from '@/lib/supabase';
-
-interface AddonOptions {
-  id: string;
-  name: string;
-  price: number;
-  type: string;
+// Paystack integration
+declare global {
+  interface Window {
+    PaystackPop: any;
+  }
 }
 
+const BACKEND_URL = 'http://localhost:3000';
+const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2';
+
 const BookingForm = () => {
-  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
-  const [quantity, setQuantity] = useState<number>(1);
-  const [deliveryLocation, setDeliveryLocation] = useState<string>('');
-  const [deliveryTime, setDeliveryTime] = useState<string>('');
-  const [paymentMode, setPaymentMode] = useState<string>('Cash on Delivery');
-  const [additionalNotes, setAdditionalNotes] = useState<string>('');
-  const [availableAddons, setAvailableAddons] = useState<AddonOptions[]>([]);
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
-  const [drink, setDrink] = useState<string>('');
-  const [foods, setFoods] = useState<Food[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const { theme } = useTheme();
+  const [formData, setFormData] = useState<BookingFormData>({
+    foodId: '',
+    price: 0,
+    quantity: 1,
+    paymentMode: 'Cash',
+    location: '',
+    additionalInfo: '',
+    phoneNumber: '',
+    deliveryTime: '',
+    addons: [],
+  });
+  
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedFood, setSelectedFood] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  const [foodItems, setFoodItems] = useState<any[]>([]);
+  const [addonOptions, setAddonOptions] = useState<any[]>([]);
+  const [locationItems, setLocationItems] = useState<any[]>([]);
+  const [paymentModeItems, setPaymentModeItems] = useState<any[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+  const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
+  const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
+  
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchFoods = async () => {
-      const { data, error } = await supabase
-        .from('foods')
-        .select('*')
-        .eq('is_available', true);
-
-      if (error) {
-        console.error('Error fetching foods:', error);
-      } else {
-        setFoods(data || []);
-      }
-    };
-
-    const fetchLocations = async () => {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-        .eq('is_active', true);
-
-      if (error) {
-        console.error('Error fetching locations:', error);
-      } else {
-        setLocations(data || []);
-      }
-    };
-
-    const fetchPaymentMethods = async () => {
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('is_active', true);
-
-      if (error) {
-        console.error('Error fetching payment methods:', error);
-      } else {
-        setPaymentMethods(data || []);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/public/foods`, {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch food items: ${response.status} ${response.statusText}`);
+        }
+        const foods = await response.json();
+        console.log('Fetched foods:', foods);
+        setFoodItems(foods.filter((food: any) => food.is_available));
+      } catch (err) {
+        console.error('Error fetching food items:', err);
+        showErrorAlert('Error', 'Failed to load food items. Please try again later.');
       }
     };
 
     const fetchAddons = async () => {
-      const { data, error } = await supabase
-        .from('additional_options')
-        .select('*');
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/public/additional-options`);
+        if (!response.ok) throw new Error('Failed to fetch additional options');
+        const options = await response.json();
+        console.log('Fetched additional options:', options);
+        setAddonOptions(options);
+      } catch (err) {
+        console.error('Error fetching addon options:', err);
+        showErrorAlert('Error', 'Failed to load addon options. Please try again later.');
+      }
+    };
 
-      if (error) {
-        console.error('Error fetching addons:', error);
-      } else {
-        setAvailableAddons(data || []);
+    const fetchLocations = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/public/locations`);
+        if (!response.ok) throw new Error('Failed to fetch locations');
+        const locations = await response.json();
+        console.log('Fetched locations:', locations);
+        setLocationItems(locations);
+        setAvailableLocations(locations
+          .filter((loc: any) => loc.is_active && loc.name && loc.name.trim() !== '')
+          .map((loc: any) => loc.name)
+        );
+      } catch (err) {
+        console.error('Error fetching locations:', err);
+        showErrorAlert('Error', 'Failed to load locations. Please try again later.');
+      }
+    };
+
+    const fetchPaymentModes = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/payment-methods/public/payment-modes`);
+        if (!response.ok) throw new Error('Failed to fetch payment modes');
+        const modes = await response.json();
+        console.log('Fetched payment modes:', modes);
+        setPaymentModeItems(modes);
+        const availableModes = modes
+          .filter((mode: any) => mode.is_active)
+          .map((mode: any) => mode.name);
+        setAvailablePaymentModes(availableModes);
+        if (availableModes.length > 0 && !formData.paymentMode) {
+          setFormData(prev => ({ ...prev, paymentMode: availableModes[0] }));
+        } else if (availableModes.length === 0) {
+          console.warn('No valid payment modes available');
+          showErrorAlert('Error', 'No valid payment modes available. Please contact support.');
+        }
+      } catch (err) {
+        console.error('Error fetching payment modes:', err);
+        showErrorAlert('Error', 'Failed to load payment modes. Please try again later.');
       }
     };
 
     fetchFoods();
-    fetchLocations();
-    fetchPaymentMethods();
     fetchAddons();
+    fetchLocations();
+    fetchPaymentModes();
   }, []);
+
+  useEffect(() => {
+    console.log('useEffect triggered with foodId:', formData.foodId, 'foodItems:', foodItems);
+    if (formData.foodId && formData.foodId !== '') {
+      const food = foodItems.find(f => f.id === formData.foodId);
+      console.log('Selected food:', food);
+      if (food) {
+        setFormData(prev => {
+          console.log('Setting price to:', food.price);
+          return { ...prev, price: food.price };
+        });
+        setSelectedFood(food);
+        setGalleryImages(food.image_urls || []);
+        if (food.image_urls && food.image_urls.length > 0) {
+          console.log('Opening gallery with images:', food.image_urls);
+          setGalleryOpen(true);
+        } else {
+          console.log('No images to open gallery');
+        }
+      } else {
+        console.log('Food not found, resetting');
+        setFormData(prev => ({ ...prev, foodId: '', price: 0 }));
+        setSelectedFood(null);
+        setGalleryImages([]);
+      }
+    } else {
+      console.log('foodId is empty, resetting');
+      setFormData(prev => ({ ...prev, price: 0 }));
+      setSelectedFood(null);
+      setGalleryImages([]);
+    }
+  }, [formData.foodId, foodItems]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleSelectChange = (name: string, value: string | number) => {
+    console.log(`handleSelectChange called with name: ${name}, value: ${value}`);
+    if (value === '') return;
+    
+    const processedValue = ['price', 'quantity'].includes(name) ? Number(value) : value;
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
+    
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = parseInt(e.target.value);
+    if (isNaN(value)) value = 1;
+    if (value < 1) value = 1;
+    if (value > 10) value = 10;
+    
+    setFormData(prev => ({ ...prev, quantity: value }));
+    
+    if (errors.quantity) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.quantity;
+        return newErrors;
+      });
+    }
+  };
+
+  const handleAddonChange = (addonName: string) => {
+    setFormData(prev => {
+      const currentAddons = prev.addons || [];
+      if (currentAddons.includes(addonName)) {
+        return { ...prev, addons: currentAddons.filter(name => name !== addonName) };
+      } else {
+        return { ...prev, addons: [...currentAddons, addonName] };
+      }
+    });
+  };
+
+  const calculateTotalPrice = () => {
+    if (!selectedFood) return 0;
+    
+    const foodTotal = selectedFood.price * formData.quantity;
+    const addonsTotal = (formData.addons || []).reduce((sum, addonName) => {
+      const addonPrice = addonOptions.find(a => a.name === addonName)?.price || 0;
+      return sum + addonPrice;
+    }, 0);
+    
+    return foodTotal + addonsTotal;
+  };
+
+  const initializePaystack = () => {
+    if (!window.PaystackPop) {
+      const script = document.createElement('script');
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  };
+
+  useEffect(() => {
+    initializePaystack();
+  }, []);
+
+  const handlePaystackPayment = (orderData: any) => {
+    const totalAmount = calculateTotalPrice() * 100; // Convert to kobo
+    
+    const handler = window.PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY,
+      email: 'customer@example.com', // You might want to add email to your form
+      amount: totalAmount,
+      currency: 'GHS',
+      ref: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      metadata: {
+        orderData: JSON.stringify(orderData),
+        custom_fields: [
+          {
+            display_name: "Order Details",
+            variable_name: "order_details",
+            value: `${selectedFood?.name} x ${formData.quantity}`
+          }
+        ]
+      },
+      callback: function(response: any) {
+        // Payment successful
+        window.location.href = `/payment-success?reference=${response.reference}&orderId=${response.reference}`;
+      },
+      onClose: function() {
+        // Payment cancelled
+        setLoading(false);
+        showErrorAlert('Payment Cancelled', 'You cancelled the payment process.');
+      }
+    });
+    
+    handler.openIframe();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedFood) {
-      showErrorAlert('Error', 'Please select a food item');
+    const validation: ValidationResult = validateBookingForm(formData);
+    
+    if (!validation.valid) {
+      setErrors(validation.errors);
+      showErrorAlert('Validation Error', 'Please check the form for errors.');
       return;
     }
-
-    if (!phoneNumber || !phoneNumber.startsWith('+233')) {
-      showErrorAlert('Error', 'Please enter a valid Ghana phone number');
-      return;
-    }
-
-    if (!deliveryLocation) {
-      showErrorAlert('Error', 'Please select a delivery location');
-      return;
-    }
-
-    if (!deliveryTime) {
-      showErrorAlert('Error', 'Please select a delivery time');
-      return;
-    }
-
-    const orderData = {
-      foodId: selectedFood.id,
-      quantity,
-      deliveryLocation,
-      phoneNumber,
-      deliveryTime,
-      paymentMode,
-      additionalNotes,
-      addons: selectedAddons,
-      drink,
-    };
-
+    
+    setLoading(true);
+    
     try {
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        showSuccessAlert('Order Placed', `Your order has been placed successfully! Order ID: ${result.order_id}`);
-      } else {
-        const errorData = await response.json();
-        showErrorAlert('Error', errorData.message || 'Failed to place order');
+      let deliveryTimeISO;
+      try {
+        const deliveryDate = new Date(formData.deliveryTime);
+        if (isNaN(deliveryDate.getTime())) {
+          throw new Error('Invalid delivery time');
+        }
+        deliveryTimeISO = deliveryDate.toISOString();
+      } catch (err) {
+        console.error('Delivery time conversion error:', err);
+        showErrorAlert('Invalid Delivery Time', 'Please select a valid delivery time.');
+        setLoading(false);
+        return;
       }
-    } catch (error: any) {
-      console.error('Error placing order:', error);
-      showErrorAlert('Error', error.message || 'Failed to place order');
+
+      const orderData = {
+        foodId: formData.foodId,
+        quantity: formData.quantity,
+        deliveryLocation: formData.location,
+        phoneNumber: formatGhanaPhone(formData.phoneNumber),
+        deliveryTime: deliveryTimeISO,
+        paymentMode: formData.paymentMode,
+        additionalNotes: formData.additionalInfo,
+        addons: formData.addons,
+      };
+
+      // Check if payment mode is Cash (for backwards compatibility)
+      if (formData.paymentMode === 'Cash') {
+        // Original flow for cash payments
+        console.log('Submitting cash order:', orderData);
+
+        const response = await fetch(`${BACKEND_URL}/api/orders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.log('Server response error:', errorData);
+          throw new Error('Failed to place order');
+        }
+
+        const order = await response.json();
+        
+        // Show success dialog for cash orders
+        showSuccessAlert('Order Placed', `Your order has been placed successfully! Order ID: ${order.order_id}`);
+        
+        // Reset form
+        setFormData({
+          foodId: '',
+          price: 0,
+          quantity: 1,
+          addons: [],
+          paymentMode: (availablePaymentModes[0] as "Mobile Money" | "Cash") || "Cash",
+          location: '',
+          additionalInfo: '',
+          phoneNumber: '',
+          deliveryTime: ''
+        });
+        setSelectedFood(null);
+        setGalleryImages([]);
+        setGalleryOpen(false);
+      } else {
+        // Paystack payment flow for other payment modes
+        handlePaystackPayment(orderData);
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error processing order:', error);
+      showErrorAlert('Order Error', 'An error occurred while processing your order. Please try again.');
+      setLoading(false);
     }
   };
 
+  const handleCloseConfirmation = () => {
+    // Reset form after successful order
+    setFormData({
+      foodId: '',
+      price: 0,
+      quantity: 1,
+      addons: [],
+      paymentMode: (availablePaymentModes[0] as "Mobile Money" | "Cash") || "Cash",
+      location: '',
+      additionalInfo: '',
+      phoneNumber: '',
+      deliveryTime: ''
+    });
+    setSelectedFood(null);
+    setGalleryImages([]);
+    setGalleryOpen(false);
+  };
+
+  const openGallery = () => {
+    if (galleryImages.length > 0) {
+      setGalleryOpen(true);
+    }
+  };
+
+  const formClasses = theme === "dark" 
+    ? "space-y-6 bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border-2 border-gray-600 text-white order-form" 
+    : "space-y-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg";
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Place Your Order</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Food Selection */}
-            <div className="space-y-4">
-              <Label className="text-lg font-semibold flex items-center gap-2">
-                <Utensils className="h-5 w-5" />
-                Select Food Item *
-              </Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {foods.map((food) => (
-                  <Card
-                    key={food.id}
-                    className={`cursor-pointer hover:shadow-md transition-shadow duration-300 ${selectedFood?.id === food.id ? 'ring-2 ring-food-primary' : ''}`}
-                    onClick={() => setSelectedFood(food)}
-                  >
-                    <CardContent className="flex flex-col items-center justify-center p-4">
-                      <img
-                        src={food.image_urls?.[0] || '/placeholder-image.jpg'}
-                        alt={food.name}
-                        className="w-24 h-24 object-cover rounded-md mb-2"
-                      />
-                      <div className="text-center">
-                        <p className="text-sm font-medium">{food.name}</p>
-                        <p className="text-xs text-gray-500">GHS {food.price}</p>
+    <div className="w-full max-w-3xl mx-auto">
+      <form onSubmit={handleSubmit} className={formClasses}>
+        <h2 className="text-2xl font-bold">Order Form</h2>
+        
+        <div className="space-y-2 relative z-30">
+          <Label htmlFor="foodId" className={theme === "dark" ? "form-label" : ""}>Select Food</Label>
+          <div className="relative">
+            <Select
+              value={formData.foodId || undefined}
+              onValueChange={(value) => handleSelectChange('foodId', value)}
+            >
+              <SelectTrigger
+                id="foodId"
+                aria-label="Select food"
+                className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}
+                ref={selectTriggerRef}
+              >
+                <SelectValue placeholder="Select food" />
+              </SelectTrigger>
+              <SelectContent>
+                {foodItems.length === 0 ? (
+                  <SelectItem value="no-foods" disabled>No food items available</SelectItem>
+                ) : (
+                  foodItems.map((food) => (
+                    <SelectItem key={food.id} value={food.id}>
+                      <div className="flex items-center gap-2">
+                        {food.image_urls && food.image_urls.length > 0 && (
+                          <img src={food.image_urls[0]} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
+                        )}
+                        <span>{food.name} (GHS {food.price})</span>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
-            {/* Quantity */}
-            <div className="space-y-2">
-              <Label htmlFor="quantity" className="text-sm font-medium">
-                Quantity *
-              </Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                value={quantity.toString()}
-                onChange={(e) => setQuantity(parseInt(e.target.value))}
-                className="dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                required
-              />
-            </div>
-
-            {/* Addons */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Additional Options
-                {selectedAddons.length > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {selectedAddons.length} Selected
-                  </Badge>
+                    </SelectItem>
+                  ))
                 )}
-              </Label>
-              <div className="flex flex-wrap gap-2">
-                {availableAddons.map((addon) => (
-                  <Button
-                    key={addon.id}
-                    variant={selectedAddons.includes(addon.name) ? 'default' : 'outline'}
-                    className="rounded-full text-sm"
-                    onClick={() => {
-                      if (selectedAddons.includes(addon.name)) {
-                        setSelectedAddons(selectedAddons.filter((name) => name !== addon.name));
-                      } else {
-                        setSelectedAddons([...selectedAddons, addon.name]);
-                      }
-                    }}
-                  >
-                    {addon.name} (+GHS {addon.price})
-                  </Button>
-                ))}
-              </div>
-            </div>
+              </SelectContent>
+            </Select>
+          </div>
+          {errors.foodId && <p className="text-red-500 text-sm">{errors.foodId}</p>}
+        </div>
 
-            {/* Drink */}
-            <div className="space-y-2">
-              <Label htmlFor="drink" className="text-sm font-medium">
-                Drink
-              </Label>
-              <Input
-                type="text"
-                id="drink"
-                placeholder="Enter your preferred drink"
-                value={drink}
-                onChange={(e) => setDrink(e.target.value)}
-                className="dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="price">Price (GHS)</Label>
+          <Input
+            id="price"
+            name="price"
+            type="number"
+            value={formData.price}
+            onChange={handleInputChange}
+            readOnly
+            className={theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-gray-100"}
+            aria-label="Food price"
+          />
+          {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
+        </div>
 
-            {/* Phone Number */}
-            <PhoneNumberInput
-              value={phoneNumber}
-              onChange={setPhoneNumber}
-              required
-            />
+        <div className="space-y-2">
+          <Label htmlFor="quantity">Quantity</Label>
+          <Input
+            id="quantity"
+            name="quantity"
+            type="number"
+            min="1"
+            max="10"
+            value={formData.quantity}
+            onChange={handleQuantityChange}
+            aria-label="Quantity"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
+          />
+          {errors.quantity && <p className="text-red-500 text-sm">{errors.quantity}</p>}
+        </div>
 
-            {/* Delivery Location */}
-            <div className="space-y-2">
-              <Label htmlFor="location" className="text-sm font-medium flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Delivery Location *
-              </Label>
-              <Select value={deliveryLocation} onValueChange={setDeliveryLocation} required>
-                <SelectTrigger className="dark:bg-gray-800 dark:border-gray-600">
-                  <SelectValue placeholder="Select delivery location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location.id} value={location.name}>
-                      {location.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="space-y-2">
+          <Label>Addons (Optional)</Label>
+          <div className="flex flex-wrap gap-4">
+            {addonOptions.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No addons available</div>
+            ) : (
+              addonOptions.map((addon) => (
+                <div key={addon.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`addon-${addon.name}`}
+                    checked={(formData.addons || []).includes(addon.name)}
+                    onCheckedChange={() => handleAddonChange(addon.name)}
+                    aria-label={`Add ${addon.name}`}
+                  />
+                  <Label htmlFor={`addon-${addon.name}`} className="cursor-pointer">
+                    {addon.name} (GHS {addon.price})
+                  </Label>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
-            {/* Delivery Time */}
-            <div className="space-y-2">
-              <Label htmlFor="deliveryTime" className="text-sm font-medium flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                Delivery Date & Time *
-              </Label>
-              <Input
-                id="deliveryTime"
-                type="datetime-local"
-                value={deliveryTime}
-                onChange={(e) => setDeliveryTime(e.target.value)}
-                min={new Date().toISOString().slice(0, 16)}
-                className="dark:bg-gray-800 dark:border-gray-600 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
-                required
-              />
-            </div>
+        <div className="space-y-2">
+          <Label>Payment Mode</Label>
+          <RadioGroup
+            value={formData.paymentMode}
+            onValueChange={(value) => handleSelectChange('paymentMode', value as string)}
+            className="flex flex-col space-y-2"
+          >
+            {availablePaymentModes.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No payment modes available</div>
+            ) : (
+              availablePaymentModes.map((mode) => (
+                <div key={mode} className="flex items-center space-x-2">
+                  <RadioGroupItem value={mode} id={`payment-${mode}`} />
+                  <Label htmlFor={`payment-${mode}`}>{mode}</Label>
+                </div>
+              ))
+            )}
+          </RadioGroup>
+          {errors.paymentMode && <p className="text-red-500 text-sm">{errors.paymentMode}</p>}
+        </div>
 
-            {/* Payment Mode */}
-            <div className="space-y-2">
-              <Label htmlFor="paymentMode" className="text-sm font-medium flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Payment Mode *
-              </Label>
-              <Select value={paymentMode} onValueChange={setPaymentMode} required>
-                <SelectTrigger className="dark:bg-gray-800 dark:border-gray-600">
-                  <SelectValue placeholder="Select payment mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods.map((method) => (
-                    <SelectItem key={method.id} value={method.name}>
-                      {method.name}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Additional Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-sm font-medium">
-                Additional Notes
-              </Label>
-              <Textarea
-                id="notes"
-                placeholder="Any specific requests?"
-                value={additionalNotes}
-                onChange={(e) => setAdditionalNotes(e.target.value)}
-                className="dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-              />
-            </div>
-
-            {/* Order Summary */}
-            <div className="space-y-4 border-t pt-4">
-              <h3 className="text-lg font-semibold">Order Summary</h3>
-              <p>
-                <span className="font-medium">Food:</span> {selectedFood?.name}
-              </p>
-              <p>
-                <span className="font-medium">Quantity:</span> {quantity}
-              </p>
-              {selectedAddons.length > 0 && (
-                <p>
-                  <span className="font-medium">Addons:</span> {selectedAddons.join(', ')}
-                </p>
+        <div className="space-y-2">
+          <Label htmlFor="location">Select Location</Label>
+          <Select
+            value={formData.location}
+            onValueChange={(value) => handleSelectChange('location', value)}
+          >
+            <SelectTrigger id="location" aria-label="Select location" className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}>
+              <SelectValue placeholder="Select location" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableLocations.length === 0 ? (
+                <SelectItem value="no-locations" disabled>No locations available</SelectItem>
+              ) : (
+                availableLocations.map((location) => (
+                  <SelectItem key={location} value={location}>
+                    {location}
+                  </SelectItem>
+                ))
               )}
-              {drink && (
-                <p>
-                  <span className="font-medium">Drink:</span> {drink}
-                </p>
-              )}
-              <p>
-                <span className="font-medium">Delivery Location:</span> {deliveryLocation}
-              </p>
-              <p>
-                <span className="font-medium">Delivery Time:</span> {deliveryTime}
-              </p>
-              <p>
-                <span className="font-medium">Payment Mode:</span> {paymentMode}
-              </p>
-            </div>
+            </SelectContent>
+          </Select>
+          {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
+        </div>
 
-            {/* Submit Button */}
-            <Button type="submit" className="w-full bg-food-primary hover:bg-food-primary/90">
-              Place Order
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+        <div className="space-y-2">
+          <Label htmlFor="additionalInfo">Additional Location Info</Label>
+          <Textarea
+            id="additionalInfo"
+            name="additionalInfo"
+            value={formData.additionalInfo}
+            onChange={handleInputChange}
+            placeholder="Landmarks, building name, etc."
+            aria-label="Additional location information"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phoneNumber">Phone Number</Label>
+          <Input
+            id="phoneNumber"
+            name="phoneNumber"
+            value={formData.phoneNumber}
+            onChange={handleInputChange}
+            placeholder="+233 XX XXX XXXX"
+            aria-label="Phone number"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
+          />
+          {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="deliveryTime">Delivery Time</Label>
+          <Input
+            id="deliveryTime"
+            name="deliveryTime"
+            type="datetime-local"
+            value={formData.deliveryTime}
+            onChange={handleInputChange}
+            aria-label="Delivery time"
+            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
+          />
+          {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
+        </div>
+
+        {selectedFood && selectedFood.image_urls && selectedFood.image_urls.length > 0 && (
+          <div className={`${theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"} cursor-pointer`} onClick={openGallery}>
+            <h3 className="text-md font-medium mb-2">Selected Food</h3>
+            <div className="flex justify-center mb-2">
+              <img 
+                src={selectedFood.image_urls[0]} 
+                alt={selectedFood.name} 
+                className="h-32 w-auto object-cover rounded-md hover:opacity-90 transition-opacity" 
+              />
+            </div>
+            <p className="text-center font-medium">{selectedFood.name}</p>
+            <p className="text-center text-sm text-muted-foreground">(Click to view larger images)</p>
+          </div>
+        )}
+
+        {selectedFood && (
+          <OrderSummary 
+            food={selectedFood} 
+            quantity={formData.quantity} 
+            addons={formData.addons} 
+            addonPrices={addonOptions.reduce((acc, addon) => {
+              acc[addon.name] = addon.price;
+              return acc;
+            }, {} as Record<string, number>)}
+          />
+        )}
+
+        <Button 
+          type="submit" 
+          disabled={loading} 
+          className="w-full bg-food-primary hover:bg-food-primary/90"
+        >
+          {loading ? 'Processing...' : 
+           formData.paymentMode === 'Cash' ? 'Place Order' : 
+           `Pay GHS ${calculateTotalPrice().toFixed(2)} & Place Order`}
+        </Button>
+      </form>
+
+      <ImageGallery 
+        images={galleryImages} 
+        isOpen={galleryOpen} 
+        onClose={() => setGalleryOpen(false)} 
+      />
     </div>
   );
 };
