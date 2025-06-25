@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -206,36 +205,62 @@ const BookingForm = () => {
 
   const createPaystackConfig = () => {
     const food = getSelectedFood();
-    if (!food) return null;
+    if (!food || !deliveryDate || !deliveryTime) return null;
 
-    const deliveryDateTime = new Date(deliveryDate!);
-    const [hours, minutes] = deliveryTime.split(':');
-    deliveryDateTime.setHours(parseInt(hours), parseInt(minutes));
+    try {
+      const deliveryDateTime = new Date(deliveryDate);
+      const [hours, minutes] = deliveryTime.split(':');
+      deliveryDateTime.setHours(parseInt(hours), parseInt(minutes));
 
-    const orderData = {
-      foodId: selectedFood,
-      quantity,
-      deliveryLocation,
-      phoneNumber,
-      deliveryTime: deliveryDateTime.toISOString(),
-      paymentMode,
-      additionalNotes,
-      addons: selectedAddons,
-    };
-
-    return {
-      reference: new Date().getTime().toString(),
-      email: 'customer@meatdoctorucc.com',
-      amount: Math.round(calculateTotal() * 100),
-      publicKey: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
-      metadata: {
-        orderData: JSON.stringify(orderData),
-        custom_fields: []
+      // Validate that the date is valid
+      if (isNaN(deliveryDateTime.getTime())) {
+        console.error('Invalid delivery date/time');
+        return null;
       }
-    };
+
+      const orderData = {
+        foodId: selectedFood,
+        quantity,
+        deliveryLocation,
+        phoneNumber,
+        deliveryTime: deliveryDateTime.toISOString(),
+        paymentMode,
+        additionalNotes,
+        addons: selectedAddons,
+      };
+
+      return {
+        reference: new Date().getTime().toString(),
+        email: 'customer@meatdoctorucc.com',
+        amount: Math.round(calculateTotal() * 100),
+        publicKey: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
+        metadata: {
+          orderData: JSON.stringify(orderData),
+          custom_fields: []
+        }
+      };
+    } catch (error) {
+      console.error('Error creating Paystack config:', error);
+      return null;
+    }
   };
 
   const paystackConfig = createPaystackConfig();
+
+  // Generate time options for the select dropdown
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let hour = 8; hour <= 22; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const displayTime = `${hour > 12 ? hour - 12 : hour === 0 ? 12 : hour}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+        options.push({ value: timeString, label: displayTime });
+      }
+    }
+    return options;
+  };
+
+  const timeOptions = generateTimeOptions();
 
   return (
     <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-background/95 dark:bg-background/95 border border-border/50">
@@ -353,16 +378,18 @@ const BookingForm = () => {
 
             <div className="space-y-2">
               <Label htmlFor="time">Delivery Time *</Label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="time"
-                  type="time"
-                  value={deliveryTime}
-                  onChange={(e) => setDeliveryTime(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+              <Select value={deliveryTime} onValueChange={setDeliveryTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select delivery time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
