@@ -314,10 +314,7 @@ const BookingForm = () => {
           </div>
 
           {/* Phone Number */}
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number *</Label>
-            <PhoneInput value={phoneNumber} onChange={setPhoneNumber} />
-          </div>
+          <PhoneInput value={phoneNumber} onChange={setPhoneNumber} />
 
           {/* Delivery Date and Time */}
           <div className="space-y-2">
