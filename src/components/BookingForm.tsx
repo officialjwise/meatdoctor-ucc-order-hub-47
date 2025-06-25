@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,13 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import PhoneInput from './PhoneInput';
-import ClockTimePicker from './ClockTimePicker';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 import { PaystackButton } from 'react-paystack';
 
@@ -23,8 +18,7 @@ const BookingForm = () => {
   const [quantity, setQuantity] = useState(1);
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState<Date>();
-  const [deliveryTime, setDeliveryTime] = useState('');
+  const [deliveryDateTime, setDeliveryDateTime] = useState('');
   const [paymentMode, setPaymentMode] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
@@ -130,7 +124,7 @@ const BookingForm = () => {
       showErrorAlert('Validation Error', 'Please enter your phone number.');
       return false;
     }
-    if (!deliveryDate || !deliveryTime) {
+    if (!deliveryDateTime) {
       showErrorAlert('Validation Error', 'Please select delivery date and time.');
       return false;
     }
@@ -154,16 +148,12 @@ const BookingForm = () => {
       try {
         setLoading(true);
         
-        const deliveryDateTime = new Date(deliveryDate!);
-        const [hours, minutes] = deliveryTime.split(':');
-        deliveryDateTime.setHours(parseInt(hours), parseInt(minutes));
-
         const orderData = {
           foodId: selectedFood,
           quantity,
           deliveryLocation,
           phoneNumber,
-          deliveryTime: deliveryDateTime.toISOString(),
+          deliveryTime: new Date(deliveryDateTime).toISOString(),
           paymentMode,
           additionalNotes,
           addons: selectedAddons,
@@ -189,8 +179,7 @@ const BookingForm = () => {
         setQuantity(1);
         setDeliveryLocation('');
         setPhoneNumber('');
-        setDeliveryDate(undefined);
-        setDeliveryTime('');
+        setDeliveryDateTime('');
         setPaymentMode('');
         setAdditionalNotes('');
         setSelectedAddons([]);
@@ -206,15 +195,13 @@ const BookingForm = () => {
 
   const createPaystackConfig = () => {
     const food = getSelectedFood();
-    if (!food || !deliveryDate || !deliveryTime) return null;
+    if (!food || !deliveryDateTime) return null;
 
     try {
-      const deliveryDateTime = new Date(deliveryDate);
-      const [hours, minutes] = deliveryTime.split(':');
-      deliveryDateTime.setHours(parseInt(hours), parseInt(minutes));
+      const deliveryDate = new Date(deliveryDateTime);
 
       // Validate that the date is valid
-      if (isNaN(deliveryDateTime.getTime())) {
+      if (isNaN(deliveryDate.getTime())) {
         console.error('Invalid delivery date/time');
         return null;
       }
@@ -224,7 +211,7 @@ const BookingForm = () => {
         quantity,
         deliveryLocation,
         phoneNumber,
-        deliveryTime: deliveryDateTime.toISOString(),
+        deliveryTime: deliveryDate.toISOString(),
         paymentMode,
         additionalNotes,
         addons: selectedAddons,
@@ -247,6 +234,12 @@ const BookingForm = () => {
   };
 
   const paystackConfig = createPaystackConfig();
+
+  // Get minimum datetime (current time)
+  const getMinDateTime = () => {
+    const now = new Date();
+    return now.toISOString().slice(0, 16);
+  };
 
   return (
     <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-background/95 dark:bg-background/95 border border-border/50">
@@ -333,43 +326,16 @@ const BookingForm = () => {
           </div>
 
           {/* Delivery Date and Time */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Delivery Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !deliveryDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {deliveryDate ? format(deliveryDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={deliveryDate}
-                    onSelect={setDeliveryDate}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="time">Delivery Time *</Label>
-              <ClockTimePicker
-                value={deliveryTime}
-                onChange={setDeliveryTime}
-                placeholder="Select delivery time"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="datetime">Delivery Date & Time *</Label>
+            <Input
+              id="datetime"
+              type="datetime-local"
+              value={deliveryDateTime}
+              onChange={(e) => setDeliveryDateTime(e.target.value)}
+              min={getMinDateTime()}
+              className="w-full"
+            />
           </div>
 
           {/* Payment Method */}
