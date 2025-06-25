@@ -81,15 +81,9 @@ const verifyPaystackPayment = async (req, res, next) => {
       additional_notes: orderData.additionalNotes,
       addons: orderData.addons || [],
       order_id: generatedOrderId,
+      payment_reference: reference,
+      payment_status: 'Completed',
     };
-
-    // Add payment fields if they exist in the table
-    try {
-      orderInsertData.payment_reference = reference;
-      orderInsertData.payment_status = 'Completed';
-    } catch (error) {
-      console.log('Payment fields may not exist in orders table:', error.message);
-    }
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -111,22 +105,30 @@ const verifyPaystackPayment = async (req, res, next) => {
       second: '2-digit',
     });
 
-    // SMS to the customer
-    const customerSmsContent = `Payment Successful! Order Confirmed!\n\nOrder ID: ${generatedOrderId}\nYour payment of GHS ${totalPrice.toFixed(2)} has been confirmed.\n\nOrder Details:\nFood: ${food.name}\nQuantity: ${orderData.quantity}\n${orderData.addons && orderData.addons.length > 0 ? `Addons: ${orderData.addons.join(', ')}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${orderData.paymentMode}\nDelivery Location: ${orderData.deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Confirmed`;
+    // Try to send SMS notifications, but don't fail the order if SMS fails
+    try {
+      // SMS to the customer
+      const customerSmsContent = `Payment Successful! Order Confirmed!\n\nOrder ID: ${generatedOrderId}\nYour payment of GHS ${totalPrice.toFixed(2)} has been confirmed.\n\nOrder Details:\nFood: ${food.name}\nQuantity: ${orderData.quantity}\n${orderData.addons && orderData.addons.length > 0 ? `Addons: ${orderData.addons.join(', ')}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${orderData.paymentMode}\nDelivery Location: ${orderData.deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Confirmed`;
 
-    await sendSMS({
-      to: orderData.phoneNumber,
-      content: customerSmsContent,
-    });
+      await sendSMS({
+        to: orderData.phoneNumber,
+        content: customerSmsContent,
+      });
 
-    // SMS to the admin
-    const adminPhoneNumber = '+233543482189';
-    const adminSmsContent = `New Paid Order Received!\n\nOrder ID: ${generatedOrderId}\nPayment Reference: ${reference}\nCustomer Phone: ${orderData.phoneNumber}\nFood: ${food.name}\nQuantity: ${orderData.quantity}\n${orderData.addons && orderData.addons.length > 0 ? `Addons: ${orderData.addons.join(', ')}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${orderData.paymentMode} (PAID)\nDelivery Location: ${orderData.deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Confirmed`;
+      // SMS to the admin
+      const adminPhoneNumber = '+233543482189';
+      const adminSmsContent = `New Paid Order Received!\n\nOrder ID: ${generatedOrderId}\nPayment Reference: ${reference}\nCustomer Phone: ${orderData.phoneNumber}\nFood: ${food.name}\nQuantity: ${orderData.quantity}\n${orderData.addons && orderData.addons.length > 0 ? `Addons: ${orderData.addons.join(', ')}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${orderData.paymentMode} (PAID)\nDelivery Location: ${orderData.deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Confirmed`;
 
-    await sendSMS({
-      to: adminPhoneNumber,
-      content: adminSmsContent,
-    });
+      await sendSMS({
+        to: adminPhoneNumber,
+        content: adminSmsContent,
+      });
+
+      logger.info('SMS notifications sent successfully');
+    } catch (smsError) {
+      logger.error('Failed to send SMS notifications:', smsError.message);
+      // Continue with the response even if SMS fails
+    }
 
     res.status(200).json({
       ...order,

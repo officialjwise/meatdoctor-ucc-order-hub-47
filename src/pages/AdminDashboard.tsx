@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AdminNavbar from '@/components/AdminNavbar';
+import Dashboard from '@/pages/Dashboard';
 import BookingsTable from '@/components/BookingsTable';
 import SettingsPanel from '@/components/SettingsPanel';
 import EnhancedAnalyticsPanel from '@/components/EnhancedAnalyticsPanel';
@@ -12,6 +14,7 @@ import CategoryManagement from '@/components/CategoryManagement';
 import AdditionalOptionsManagement from '@/components/AdditionalOptionsManagement';
 
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Bell, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +28,7 @@ const AdminDashboard = () => {
   const [bookings, setBookings] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [previousBookingCount, setPreviousBookingCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     // Check if authenticated and token is not expired
@@ -61,6 +65,7 @@ const AdminDashboard = () => {
   
   const loadBookings = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`${BACKEND_URL}/api/orders`, {
         method: 'GET',
         headers: {
@@ -100,8 +105,8 @@ const AdminDashboard = () => {
             action: {
               label: "View",
               onClick: () => {
-                if (!location.pathname.endsWith('/dashboard')) {
-                  navigate('/admin/dashboard');
+                if (!location.pathname.endsWith('/orders')) {
+                  navigate('/admin/dashboard/orders');
                 }
               }
             }
@@ -114,6 +119,8 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast.error(error.message || 'Failed to load bookings. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -131,7 +138,11 @@ const AdminDashboard = () => {
   const getCurrentPageTitle = () => {
     const path = location.pathname;
     
-    if (path.endsWith('/settings')) {
+    if (path.endsWith('/dashboard') || path === '/admin/dashboard') {
+      return 'Dashboard';
+    } else if (path.endsWith('/orders')) {
+      return 'Orders Management';
+    } else if (path.endsWith('/settings')) {
       return 'Settings';
     } else if (path.endsWith('/analytics')) {
       return 'Analytics';
@@ -146,9 +157,24 @@ const AdminDashboard = () => {
     } else if (path.endsWith('/additional-options')) {
       return 'Additional Options Management';
     } else {
-      return 'Bookings Management';
+      return 'Dashboard';
     }
   };
+
+  const LoadingSkeleton = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-24 w-full" />
+        ))}
+      </div>
+      <Skeleton className="h-64 w-full" />
+    </div>
+  );
   
   return (
     <div className="min-h-screen bg-background">
@@ -182,7 +208,9 @@ const AdminDashboard = () => {
             </div>
             
             <Routes>
-              <Route path="/" element={
+              <Route path="/" element={<Dashboard />} />
+              <Route path="orders" element={
+                loading ? <LoadingSkeleton /> : 
                 <BookingsTable 
                   bookings={bookings} 
                   onBookingsUpdate={handleBookingsUpdate} 

@@ -31,6 +31,7 @@ import OrderSummary from './OrderSummary';
 import { useTheme } from '@/hooks/use-theme';
 import ImageGallery from './ImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
+import PhoneInput from './PhoneInput';
 
 // Paystack integration
 declare global {
@@ -571,13 +572,10 @@ const BookingForm = () => {
 
         <div className="space-y-2">
           <Label htmlFor="phoneNumber">Phone Number</Label>
-          <Input
-            id="phoneNumber"
-            name="phoneNumber"
+          <PhoneInput
             value={formData.phoneNumber}
-            onChange={handleInputChange}
-            placeholder="+233 XX XXX XXXX"
-            aria-label="Phone number"
+            onChange={handlePhoneChange}
+            error={errors.phoneNumber}
             className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
           />
           {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
@@ -585,15 +583,27 @@ const BookingForm = () => {
 
         <div className="space-y-2">
           <Label htmlFor="deliveryTime">Delivery Time</Label>
-          <Input
-            id="deliveryTime"
-            name="deliveryTime"
-            type="datetime-local"
-            value={formData.deliveryTime}
-            onChange={handleInputChange}
-            aria-label="Delivery time"
-            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
-          />
+          <div className="relative">
+            <Input
+              id="deliveryTime"
+              name="deliveryTime"
+              type="datetime-local"
+              value={formData.deliveryTime}
+              onChange={handleInputChange}
+              aria-label="Delivery time"
+              className={`
+                ${theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
+                [&::-webkit-calendar-picker-indicator]:opacity-100 
+                [&::-webkit-calendar-picker-indicator]:brightness-0 
+                [&::-webkit-calendar-picker-indicator]:invert
+                ${theme === "dark" ? "[&::-webkit-calendar-picker-indicator]:filter-none [&::-webkit-calendar-picker-indicator]:brightness-100" : ""}
+                [&::-webkit-calendar-picker-indicator]:cursor-pointer
+                [&::-webkit-calendar-picker-indicator]:p-1
+                [&::-webkit-calendar-picker-indicator]:rounded
+                [&::-webkit-calendar-picker-indicator]:hover:bg-accent
+              `}
+            />
+          </div>
           {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
         </div>
 
