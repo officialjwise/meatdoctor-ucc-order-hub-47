@@ -4,7 +4,7 @@ const { sendSMS } = require('../utils/sendSMS');
 const logger = require('../utils/logger');
 const axios = require('axios');
 
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_34af9dda2e2a1427cae2a59a679bbff284f19e58';
 
 const verifyPaystackPayment = async (req, res, next) => {
   try {

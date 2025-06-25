@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +40,7 @@ declare global {
 }
 
 const BACKEND_URL = 'http://localhost:3000';
-const PAYSTACK_PUBLIC_KEY = 'pk_test_your_paystack_public_key'; // Replace with your actual public key
+const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2';
 
 const BookingForm = () => {
   const { theme } = useTheme();
@@ -124,13 +123,13 @@ const BookingForm = () => {
 
     const fetchPaymentModes = async () => {
       try {
-        const response = await fetch(`${BACKEND_URL}/api/payment-methods/public/payment-modes`); // Fixed URL
+        const response = await fetch(`${BACKEND_URL}/api/payment-methods/public/payment-modes`);
         if (!response.ok) throw new Error('Failed to fetch payment modes');
         const modes = await response.json();
         console.log('Fetched payment modes:', modes);
         setPaymentModeItems(modes);
         const availableModes = modes
-          .filter((mode: any) => mode.is_active) // Removed validModes filter
+          .filter((mode: any) => mode.is_active)
           .map((mode: any) => mode.name);
         setAvailablePaymentModes(availableModes);
         if (availableModes.length > 0 && !formData.paymentMode) {
