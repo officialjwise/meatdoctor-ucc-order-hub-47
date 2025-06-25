@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ const PaymentSuccess = () => {
 
       try {
         // Verify payment and create order
-        const response = await fetch('http://localhost:3000/api/payments/verify-payment', {
+        const response = await fetch('/api/payments/verify-payment', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -112,4 +111,3 @@ const PaymentSuccess = () => {
 };
 
 export default PaymentSuccess;
-

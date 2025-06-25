@@ -41,7 +41,7 @@ app.use('/api', settingsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/foods', foodRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/orders', paymentRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/locations', locationsRoutes);
@@ -49,7 +49,6 @@ app.use('/api/payment-methods', paymentMethodsRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/additional-options', additionalOptionsRoutes);
 app.use('/api/public', publicRoutes);
-
 
 app.get('/api/test-supabase', async (req, res) => {
   try {

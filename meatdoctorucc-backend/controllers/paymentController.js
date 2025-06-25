@@ -14,6 +14,8 @@ const verifyPaystackPayment = async (req, res, next) => {
       return res.status(400).json({ error: 'Payment reference is required' });
     }
 
+    console.log('Verifying payment with reference:', reference);
+
     // Verify payment with Paystack
     const paymentVerification = await axios.get(
       `https://api.paystack.co/transaction/verify/${reference}`,
@@ -26,6 +28,7 @@ const verifyPaystackPayment = async (req, res, next) => {
     );
 
     const paymentData = paymentVerification.data;
+    console.log('Paystack verification response:', paymentData);
 
     if (!paymentData.status || paymentData.data.status !== 'success') {
       return res.status(400).json({ error: 'Payment verification failed' });
@@ -33,6 +36,7 @@ const verifyPaystackPayment = async (req, res, next) => {
 
     // Extract order data from payment metadata
     const orderData = JSON.parse(paymentData.data.metadata.orderData);
+    console.log('Order data from payment:', orderData);
     
     // Fetch food details
     const { data: food, error: foodError } = await supabase
@@ -66,24 +70,30 @@ const verifyPaystackPayment = async (req, res, next) => {
     const generatedOrderId = `MD${Math.floor(100000000 + Math.random() * 900000000)}`;
 
     // Create order in database
+    const orderInsertData = {
+      food_id: orderData.foodId,
+      quantity: orderData.quantity,
+      delivery_location: orderData.deliveryLocation,
+      phone_number: orderData.phoneNumber,
+      delivery_time: orderData.deliveryTime,
+      order_status: 'Confirmed', // Set as confirmed since payment is successful
+      payment_mode: orderData.paymentMode,
+      additional_notes: orderData.additionalNotes,
+      addons: orderData.addons || [],
+      order_id: generatedOrderId,
+    };
+
+    // Add payment fields if they exist in the table
+    try {
+      orderInsertData.payment_reference = reference;
+      orderInsertData.payment_status = 'Completed';
+    } catch (error) {
+      console.log('Payment fields may not exist in orders table:', error.message);
+    }
+
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert([
-        {
-          food_id: orderData.foodId,
-          quantity: orderData.quantity,
-          delivery_location: orderData.deliveryLocation,
-          phone_number: orderData.phoneNumber,
-          delivery_time: orderData.deliveryTime,
-          order_status: 'Confirmed', // Set as confirmed since payment is successful
-          payment_mode: orderData.paymentMode,
-          additional_notes: orderData.additionalNotes,
-          addons: orderData.addons || [],
-          order_id: generatedOrderId,
-          payment_reference: reference,
-          payment_status: 'Completed',
-        },
-      ])
+      .insert([orderInsertData])
       .select()
       .single();
 
