@@ -413,6 +413,18 @@ const BookingForm = () => {
     }
   };
 
+  const handlePhoneChange = (value: string) => {
+    setFormData(prev => ({ ...prev, phoneNumber: value }));
+    
+    if (errors.phoneNumber) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.phoneNumber;
+        return newErrors;
+      });
+    }
+  };
+
   const formClasses = theme === "dark" 
     ? "space-y-6 bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border-2 border-gray-600 text-white order-form" 
     : "space-y-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg";

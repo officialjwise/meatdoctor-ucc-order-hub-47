@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,8 +60,15 @@ const Dashboard = () => {
     }
   };
 
-  const StatCard = ({ title, value, icon: Icon, description, color = "default", onClick }) => (
-    <Card className={`cursor-pointer hover:shadow-lg transition-shadow ${onClick ? 'hover:bg-accent/50' : ''}`} onClick={onClick}>
+  const StatCard = ({ title, value, icon: Icon, description, color = "default", onClick }: {
+    title: any;
+    value: any;
+    icon: any;
+    description: any;
+    color?: string;
+    onClick?: () => void;
+  }) => (
+    <Card className={`${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow hover:bg-accent/50' : ''}`} onClick={onClick}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={`h-4 w-4 ${
@@ -107,7 +113,7 @@ const Dashboard = () => {
           value={stats?.totalOrders || 0}
           icon={ShoppingBag}
           description="All time orders"
-          onClick={() => navigate('/admin/dashboard')}
+          onClick={() => navigate('/admin/dashboard/orders')}
         />
         <StatCard
           title="Total Revenue"
@@ -129,7 +135,7 @@ const Dashboard = () => {
           icon={Clock}
           description="Awaiting processing"
           color="yellow"
-          onClick={() => navigate('/admin/dashboard')}
+          onClick={() => navigate('/admin/dashboard/orders')}
         />
       </div>
 
