@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import PhoneInput from './PhoneInput';
+import DateTimePicker from './DateTimePicker';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 import { PaystackButton } from 'react-paystack';
 
@@ -235,12 +235,6 @@ const BookingForm = () => {
 
   const paystackConfig = createPaystackConfig();
 
-  // Get minimum datetime (current time)
-  const getMinDateTime = () => {
-    const now = new Date();
-    return now.toISOString().slice(0, 16);
-  };
-
   return (
     <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-background/95 dark:bg-background/95 border border-border/50">
       <CardHeader>
@@ -328,13 +322,10 @@ const BookingForm = () => {
           {/* Delivery Date and Time */}
           <div className="space-y-2">
             <Label htmlFor="datetime">Delivery Date & Time *</Label>
-            <Input
-              id="datetime"
-              type="datetime-local"
+            <DateTimePicker
               value={deliveryDateTime}
-              onChange={(e) => setDeliveryDateTime(e.target.value)}
-              min={getMinDateTime()}
-              className="w-full"
+              onChange={setDeliveryDateTime}
+              placeholder="Select delivery date and time"
             />
           </div>
 
