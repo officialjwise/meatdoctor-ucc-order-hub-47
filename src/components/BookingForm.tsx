@@ -43,115 +43,77 @@ const BookingForm = () => {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [paystackLoaded, setPaystackLoaded] = useState(false);
 
-  // Enhanced Paystack script loading with better detection
+  // Simplified and more reliable Paystack loading
   useEffect(() => {
-    const loadPaystackScript = () => {
-      console.log('Starting Paystack script loading process...');
+    const initializePaystack = () => {
+      console.log('=== INITIALIZING PAYSTACK ===');
       
-      // Multiple checks for Paystack availability
-      const checkPaystackReady = () => {
-        const isReady = window.PaystackPop && typeof window.PaystackPop.newTransaction === 'function';
-        console.log('Paystack ready check:', { 
-          windowPaystackPop: !!window.PaystackPop, 
-          newTransactionFunction: !!(window.PaystackPop && window.PaystackPop.newTransaction),
-          isReady 
+      // Check if Paystack is already fully loaded
+      const isPaystackReady = () => {
+        const ready = !!(window.PaystackPop && 
+                         typeof window.PaystackPop === 'object' && 
+                         typeof window.PaystackPop.newTransaction === 'function');
+        console.log('Paystack readiness check:', {
+          PaystackPop_exists: !!window.PaystackPop,
+          is_object: typeof window.PaystackPop === 'object',
+          newTransaction_exists: !!(window.PaystackPop && window.PaystackPop.newTransaction),
+          newTransaction_is_function: !!(window.PaystackPop && typeof window.PaystackPop.newTransaction === 'function'),
+          overall_ready: ready
         });
-        return isReady;
+        return ready;
       };
 
-      // If already loaded and ready
-      if (checkPaystackReady()) {
-        console.log('Paystack already loaded and ready');
+      if (isPaystackReady()) {
+        console.log('Paystack already ready');
         setPaystackLoaded(true);
         return;
       }
 
-      // Check if script is already in DOM
-      const existingScript = document.querySelector('script[src*="paystack"]');
-      if (existingScript) {
-        console.log('Paystack script already exists, waiting for load...');
-        
-        // Set up polling to check when Paystack becomes available
-        const pollForPaystack = () => {
-          let attempts = 0;
-          const maxAttempts = 30; // 3 seconds total
-          
-          const poll = () => {
-            attempts++;
-            console.log(`Polling for Paystack availability (attempt ${attempts}/${maxAttempts})`);
-            
-            if (checkPaystackReady()) {
-              console.log('Paystack became available via polling');
-              setPaystackLoaded(true);
-              return;
-            }
-            
-            if (attempts < maxAttempts) {
-              setTimeout(poll, 100);
-            } else {
-              console.error('Paystack failed to load after polling');
-              showErrorAlert('Payment Error', 'Payment system failed to initialize. Please refresh the page.');
-            }
-          };
-          
-          poll();
-        };
-        
-        pollForPaystack();
-        return;
-      }
+      // Remove any existing Paystack scripts
+      const existingScripts = document.querySelectorAll('script[src*="paystack"]');
+      existingScripts.forEach(script => script.remove());
 
-      console.log('Creating new Paystack script...');
+      console.log('Loading fresh Paystack script...');
       const script = document.createElement('script');
       script.src = 'https://js.paystack.co/v1/inline.js';
       script.async = true;
-      
-      script.onload = () => {
-        console.log('Paystack script loaded, checking availability...');
+
+      let checkAttempts = 0;
+      const maxAttempts = 50; // 5 seconds total
+
+      const checkPaystackLoad = () => {
+        checkAttempts++;
+        console.log(`Checking Paystack load attempt ${checkAttempts}/${maxAttempts}`);
         
-        // Wait a bit for Paystack to initialize
-        setTimeout(() => {
-          if (checkPaystackReady()) {
-            console.log('Paystack ready after script load');
-            setPaystackLoaded(true);
-          } else {
-            console.error('Paystack script loaded but PaystackPop not available');
-            // Try polling as fallback
-            let attempts = 0;
-            const poll = () => {
-              attempts++;
-              if (checkPaystackReady()) {
-                console.log('Paystack ready after delayed polling');
-                setPaystackLoaded(true);
-              } else if (attempts < 10) {
-                setTimeout(poll, 200);
-              } else {
-                console.error('Paystack never became available');
-                showErrorAlert('Payment Error', 'Payment system failed to initialize. Please refresh the page.');
-              }
-            };
-            poll();
-          }
-        }, 100);
+        if (isPaystackReady()) {
+          console.log('✅ Paystack fully loaded and ready!');
+          setPaystackLoaded(true);
+          return;
+        }
+
+        if (checkAttempts < maxAttempts) {
+          setTimeout(checkPaystackLoad, 100);
+        } else {
+          console.error('❌ Paystack failed to load completely');
+          showErrorAlert('Payment Error', 'Payment system failed to load. Please refresh the page.');
+        }
       };
-      
+
+      script.onload = () => {
+        console.log('Paystack script onload fired');
+        // Start checking immediately after script loads
+        setTimeout(checkPaystackLoad, 50);
+      };
+
       script.onerror = (error) => {
         console.error('Failed to load Paystack script:', error);
-        showErrorAlert('Payment Error', 'Failed to load payment system. Please check your internet connection and refresh the page.');
+        showErrorAlert('Payment Error', 'Failed to load payment system. Please refresh and try again.');
       };
-      
+
       document.head.appendChild(script);
     };
 
-    loadPaystackScript();
-
-    return () => {
-      // Clean up script on unmount
-      const script = document.querySelector('script[src*="paystack"]');
-      if (script && script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    };
+    initializePaystack();
   }, []);
 
   useEffect(() => {
@@ -324,33 +286,24 @@ const BookingForm = () => {
   const handlePaystackPayment = () => {
     console.log('=== PAYSTACK PAYMENT ATTEMPT ===');
     console.log('Paystack loaded status:', paystackLoaded);
-    console.log('Window PaystackPop exists:', !!window.PaystackPop);
-    console.log('Window PaystackPop.newTransaction exists:', !!(window.PaystackPop && window.PaystackPop.newTransaction));
+    console.log('Window PaystackPop check:', {
+      exists: !!window.PaystackPop,
+      type: typeof window.PaystackPop,
+      newTransaction_exists: !!(window.PaystackPop && window.PaystackPop.newTransaction),
+      newTransaction_type: window.PaystackPop ? typeof window.PaystackPop.newTransaction : 'N/A'
+    });
 
-    // Enhanced validation
-    if (!paystackLoaded) {
-      console.error('Paystack not marked as loaded');
-      showErrorAlert('Payment Error', 'Payment system is still loading. Please wait a moment and try again.');
-      return;
-    }
-
-    if (!window.PaystackPop) {
-      console.error('Window.PaystackPop not available');
-      showErrorAlert('Payment Error', 'Payment system not available. Please refresh the page and try again.');
-      return;
-    }
-
-    if (typeof window.PaystackPop.newTransaction !== 'function') {
-      console.error('PaystackPop.newTransaction is not a function');
-      showErrorAlert('Payment Error', 'Payment system not properly initialized. Please refresh the page and try again.');
+    // Final validation before proceeding
+    if (!paystackLoaded || !window.PaystackPop || typeof window.PaystackPop.newTransaction !== 'function') {
+      console.error('❌ Paystack not ready for transaction');
+      showErrorAlert('Payment Error', 'Payment system is not ready. Please wait a moment and try again.');
       return;
     }
 
     const orderData = createOrderData();
     const totalAmount = calculateTotal();
 
-    console.log('Order data:', orderData);
-    console.log('Total amount:', totalAmount);
+    console.log('💰 Processing payment:', { orderData, totalAmount });
 
     const paystackConfig = {
       key: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
@@ -363,12 +316,10 @@ const BookingForm = () => {
         custom_fields: []
       },
       callback: async (response: any) => {
-        console.log('=== PAYSTACK PAYMENT SUCCESS ===');
-        console.log('Payment response:', response);
+        console.log('✅ PAYMENT SUCCESS:', response);
         try {
           setLoading(true);
           
-          // Verify payment with backend
           const verifyResponse = await fetch(`${BACKEND_URL}/api/payment/verify-payment`, {
             method: 'POST',
             headers: {
@@ -397,22 +348,18 @@ const BookingForm = () => {
         }
       },
       onClose: () => {
-        console.log('=== PAYSTACK PAYMENT CANCELLED ===');
+        console.log('❌ PAYMENT CANCELLED');
         showErrorAlert('Payment Cancelled', 'Your payment was cancelled. Please try again.');
       }
     };
 
-    console.log('=== OPENING PAYSTACK POPUP ===');
-    console.log('Paystack config:', paystackConfig);
+    console.log('🚀 Opening Paystack popup with config:', paystackConfig);
 
     try {
       window.PaystackPop.newTransaction(paystackConfig);
-      console.log('Paystack popup opened successfully');
+      console.log('✅ Paystack popup opened successfully');
     } catch (error) {
-      console.error('=== ERROR OPENING PAYSTACK POPUP ===');
-      console.error('Error details:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('❌ ERROR OPENING PAYSTACK POPUP:', error);
       showErrorAlert('Payment Error', `Failed to open payment window: ${error.message}. Please try again.`);
     }
   };
