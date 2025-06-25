@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,10 +39,10 @@ const BookingForm = () => {
     const fetchData = async () => {
       try {
         const [foodsRes, locationsRes, paymentMethodsRes, addonsRes] = await Promise.all([
-          fetch(`${BACKEND_URL}/api/foods`),
-          fetch(`${BACKEND_URL}/api/locations`),
-          fetch(`${BACKEND_URL}/api/payment-methods`),
-          fetch(`${BACKEND_URL}/api/additional-options`)
+          fetch(`${BACKEND_URL}/api/public/foods`),
+          fetch(`${BACKEND_URL}/api/public/locations`),
+          fetch(`${BACKEND_URL}/api/public/payment-modes`),
+          fetch(`${BACKEND_URL}/api/public/additional-options`)
         ]);
 
         if (foodsRes.ok) {
