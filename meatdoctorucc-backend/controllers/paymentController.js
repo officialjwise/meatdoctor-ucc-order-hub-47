@@ -81,7 +81,7 @@ const verifyPaystackPayment = async (req, res, next) => {
       delivery_location: orderData.deliveryLocation,
       phone_number: orderData.phoneNumber,
       delivery_time: orderData.deliveryTime,
-      order_status: 'Confirmed', // Set as confirmed since payment is successful
+      order_status: 'Confirmed',
       payment_mode: orderData.paymentMode,
       additional_notes: orderData.additionalNotes,
       addons: orderData.addons || [],
@@ -110,8 +110,10 @@ const verifyPaystackPayment = async (req, res, next) => {
       second: '2-digit',
     });
 
-    // Try to send SMS notifications, but don't fail the order if SMS fails
+    // Send SMS notifications
     try {
+      console.log('Attempting to send SMS notifications...');
+      
       // SMS to the customer with correct payment details
       const customerSmsContent = `PAYMENT CONFIRMED! 💳✅
 
@@ -131,10 +133,15 @@ Track your order: meatdoctorucc.com/track-order/${generatedOrderId}
 
 Thank you for choosing MeatDoctor UCC! 🍔`;
 
-      await sendSMS({
+      console.log('Sending customer SMS to:', orderData.phoneNumber);
+      console.log('Customer SMS content:', customerSmsContent);
+
+      const customerSmsResult = await sendSMS({
         to: orderData.phoneNumber,
         content: customerSmsContent,
       });
+
+      console.log('Customer SMS sent successfully:', customerSmsResult);
 
       // SMS to the admin with payment confirmation
       const adminPhoneNumber = '+233543482189';
@@ -157,20 +164,30 @@ ORDER DETAILS:
 
 Status: CONFIRMED - Ready to prepare! 🍳`;
 
-      await sendSMS({
+      console.log('Sending admin SMS to:', adminPhoneNumber);
+      console.log('Admin SMS content:', adminSmsContent);
+
+      const adminSmsResult = await sendSMS({
         to: adminPhoneNumber,
         content: adminSmsContent,
       });
 
+      console.log('Admin SMS sent successfully:', adminSmsResult);
       logger.info('SMS notifications sent successfully');
+      
     } catch (smsError) {
-      logger.error('Failed to send SMS notifications:', smsError.message);
+      logger.error('Failed to send SMS notifications:', smsError);
+      console.error('SMS Error details:', {
+        message: smsError.message,
+        stack: smsError.stack,
+        phoneNumber: orderData.phoneNumber
+      });
       // Continue with the response even if SMS fails
     }
 
     res.status(200).json({
       ...order,
-      totalPrice: actualAmountPaid, // Use the actual amount paid from Paystack
+      totalPrice: actualAmountPaid,
       foodName: food.name,
       paymentStatus: 'Completed',
       paymentReference: reference,
@@ -178,6 +195,7 @@ Status: CONFIRMED - Ready to prepare! 🍳`;
     });
   } catch (err) {
     logger.error(`Error in verifyPaystackPayment: ${err.message}`);
+    console.error('Payment verification error:', err);
     next(err);
   }
 };

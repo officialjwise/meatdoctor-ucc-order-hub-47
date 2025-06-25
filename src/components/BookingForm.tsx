@@ -1,348 +1,172 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from 'lucide-react';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { 
-  validateBookingForm, 
-  BookingFormData, 
-  ValidationResult, 
-  formatGhanaPhone 
-} from '@/lib/validation';
-import OrderSummary from './OrderSummary';
-import { useTheme } from '@/hooks/use-theme';
-import ImageGallery from './ImageGallery';
-import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import PhoneInput from './PhoneInput';
-
-// Paystack integration
-declare global {
-  interface Window {
-    PaystackPop: any;
-  }
-}
+import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
+import { PaystackButton } from 'react-paystack';
 
 const BACKEND_URL = 'http://localhost:3000';
-const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2';
 
 const BookingForm = () => {
-  const { theme } = useTheme();
+  const [selectedFood, setSelectedFood] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [deliveryLocation, setDeliveryLocation] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState<Date>();
+  const [deliveryTime, setDeliveryTime] = useState('');
+  const [paymentMode, setPaymentMode] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   
-  const [formData, setFormData] = useState<BookingFormData>({
-    foodId: '',
-    price: 0,
-    quantity: 1,
-    paymentMode: 'Cash',
-    location: '',
-    additionalInfo: '',
-    phoneNumber: '',
-    deliveryTime: '',
-    addons: [],
-  });
-  
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [selectedFood, setSelectedFood] = useState<any | null>(null);
+  const [foods, setFoods] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [additionalOptions, setAdditionalOptions] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  const [foodItems, setFoodItems] = useState<any[]>([]);
-  const [addonOptions, setAddonOptions] = useState<any[]>([]);
-  const [locationItems, setLocationItems] = useState<any[]>([]);
-  const [paymentModeItems, setPaymentModeItems] = useState<any[]>([]);
-  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
-  const [availablePaymentModes, setAvailablePaymentModes] = useState<string[]>([]);
-  const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
-  
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  const [galleryImages, setGalleryImages] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchFoods = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`${BACKEND_URL}/api/public/foods`, {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch food items: ${response.status} ${response.statusText}`);
+        const [foodsRes, locationsRes, paymentMethodsRes, addonsRes] = await Promise.all([
+          fetch(`${BACKEND_URL}/api/foods`),
+          fetch(`${BACKEND_URL}/api/locations`),
+          fetch(`${BACKEND_URL}/api/payment-methods`),
+          fetch(`${BACKEND_URL}/api/additional-options`)
+        ]);
+
+        if (foodsRes.ok) {
+          const foodsData = await foodsRes.json();
+          setFoods(foodsData.filter((food: any) => food.is_available));
         }
-        const foods = await response.json();
-        console.log('Fetched foods:', foods);
-        setFoodItems(foods.filter((food: any) => food.is_available));
-      } catch (err) {
-        console.error('Error fetching food items:', err);
-        showErrorAlert('Error', 'Failed to load food items. Please try again later.');
-      }
-    };
 
-    const fetchAddons = async () => {
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/public/additional-options`);
-        if (!response.ok) throw new Error('Failed to fetch additional options');
-        const options = await response.json();
-        console.log('Fetched additional options:', options);
-        setAddonOptions(options);
-      } catch (err) {
-        console.error('Error fetching addon options:', err);
-        showErrorAlert('Error', 'Failed to load addon options. Please try again later.');
-      }
-    };
-
-    const fetchLocations = async () => {
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/public/locations`);
-        if (!response.ok) throw new Error('Failed to fetch locations');
-        const locations = await response.json();
-        console.log('Fetched locations:', locations);
-        setLocationItems(locations);
-        setAvailableLocations(locations
-          .filter((loc: any) => loc.is_active && loc.name && loc.name.trim() !== '')
-          .map((loc: any) => loc.name)
-        );
-      } catch (err) {
-        console.error('Error fetching locations:', err);
-        showErrorAlert('Error', 'Failed to load locations. Please try again later.');
-      }
-    };
-
-    const fetchPaymentModes = async () => {
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/payment-methods/public/payment-modes`);
-        if (!response.ok) throw new Error('Failed to fetch payment modes');
-        const modes = await response.json();
-        console.log('Fetched payment modes:', modes);
-        setPaymentModeItems(modes);
-        const availableModes = modes
-          .filter((mode: any) => mode.is_active)
-          .map((mode: any) => mode.name);
-        setAvailablePaymentModes(availableModes);
-        if (availableModes.length > 0 && !formData.paymentMode) {
-          setFormData(prev => ({ ...prev, paymentMode: availableModes[0] }));
-        } else if (availableModes.length === 0) {
-          console.warn('No valid payment modes available');
-          showErrorAlert('Error', 'No valid payment modes available. Please contact support.');
+        if (locationsRes.ok) {
+          const locationsData = await locationsRes.json();
+          setLocations(locationsData.filter((location: any) => location.is_active));
         }
-      } catch (err) {
-        console.error('Error fetching payment modes:', err);
-        showErrorAlert('Error', 'Failed to load payment modes. Please try again later.');
+
+        if (paymentMethodsRes.ok) {
+          const paymentMethodsData = await paymentMethodsRes.json();
+          setPaymentMethods(paymentMethodsData.filter((method: any) => method.is_active));
+        }
+
+        if (addonsRes.ok) {
+          const addonsData = await addonsRes.json();
+          setAdditionalOptions(addonsData);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        showErrorAlert('Error', 'Failed to load form data. Please refresh the page.');
       }
     };
 
-    fetchFoods();
-    fetchAddons();
-    fetchLocations();
-    fetchPaymentModes();
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    console.log('useEffect triggered with foodId:', formData.foodId, 'foodItems:', foodItems);
-    if (formData.foodId && formData.foodId !== '') {
-      const food = foodItems.find(f => f.id === formData.foodId);
-      console.log('Selected food:', food);
-      if (food) {
-        setFormData(prev => {
-          console.log('Setting price to:', food.price);
-          return { ...prev, price: food.price };
-        });
-        setSelectedFood(food);
-        setGalleryImages(food.image_urls || []);
-        if (food.image_urls && food.image_urls.length > 0) {
-          console.log('Opening gallery with images:', food.image_urls);
-          setGalleryOpen(true);
-        } else {
-          console.log('No images to open gallery');
-        }
-      } else {
-        console.log('Food not found, resetting');
-        setFormData(prev => ({ ...prev, foodId: '', price: 0 }));
-        setSelectedFood(null);
-        setGalleryImages([]);
-      }
-    } else {
-      console.log('foodId is empty, resetting');
-      setFormData(prev => ({ ...prev, price: 0 }));
-      setSelectedFood(null);
-      setGalleryImages([]);
-    }
-  }, [formData.foodId, foodItems]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
+  const getSelectedFood = () => {
+    return foods.find((food: any) => food.id === selectedFood);
   };
 
-  const handleSelectChange = (name: string, value: string | number) => {
-    console.log(`handleSelectChange called with name: ${name}, value: ${value}`);
-    if (value === '') return;
+  const calculateTotal = () => {
+    const food = getSelectedFood();
+    if (!food) return 0;
     
-    const processedValue = ['price', 'quantity'].includes(name) ? Number(value) : value;
-    setFormData(prev => ({ ...prev, [name]: processedValue }));
-    
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  };
-
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = parseInt(e.target.value);
-    if (isNaN(value)) value = 1;
-    if (value < 1) value = 1;
-    if (value > 10) value = 10;
-    
-    setFormData(prev => ({ ...prev, quantity: value }));
-    
-    if (errors.quantity) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.quantity;
-        return newErrors;
-      });
-    }
-  };
-
-  const handleAddonChange = (addonName: string) => {
-    setFormData(prev => {
-      const currentAddons = prev.addons || [];
-      if (currentAddons.includes(addonName)) {
-        return { ...prev, addons: currentAddons.filter(name => name !== addonName) };
-      } else {
-        return { ...prev, addons: [...currentAddons, addonName] };
-      }
-    });
-  };
-
-  const calculateTotalPrice = () => {
-    if (!selectedFood) return 0;
-    
-    const foodTotal = selectedFood.price * formData.quantity;
-    const addonsTotal = (formData.addons || []).reduce((sum, addonName) => {
-      const addonPrice = addonOptions.find(a => a.name === addonName)?.price || 0;
-      return sum + addonPrice;
+    const foodTotal = food.price * quantity;
+    const addonsTotal = selectedAddons.reduce((total, addonName) => {
+      const addon = additionalOptions.find((option: any) => option.name === addonName);
+      return total + (addon ? addon.price : 0);
     }, 0);
     
     return foodTotal + addonsTotal;
   };
 
-  const initializePaystack = () => {
-    if (!window.PaystackPop) {
-      const script = document.createElement('script');
-      script.src = 'https://js.paystack.co/v1/inline.js';
-      script.async = true;
-      document.head.appendChild(script);
+  const handleAddonChange = (addonName: string, checked: boolean) => {
+    if (checked) {
+      setSelectedAddons([...selectedAddons, addonName]);
+    } else {
+      setSelectedAddons(selectedAddons.filter(name => name !== addonName));
     }
   };
 
-  useEffect(() => {
-    initializePaystack();
-  }, []);
+  const handlePaystackSuccess = async (reference: any) => {
+    try {
+      setLoading(true);
+      
+      // Redirect to payment success page with reference
+      window.location.href = `/payment-success?reference=${reference.reference}`;
+      
+    } catch (error) {
+      console.error('Error handling payment success:', error);
+      showErrorAlert('Error', 'Payment successful but failed to process. Please contact support.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handlePaystackPayment = (orderData: any) => {
-    const totalAmount = calculateTotalPrice() * 100; // Convert to kobo
-    
-    const handler = window.PaystackPop.setup({
-      key: PAYSTACK_PUBLIC_KEY,
-      email: 'customer@example.com', // You might want to add email to your form
-      amount: totalAmount,
-      currency: 'GHS',
-      ref: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      metadata: {
-        orderData: JSON.stringify(orderData),
-        custom_fields: [
-          {
-            display_name: "Order Details",
-            variable_name: "order_details",
-            value: `${selectedFood?.name} x ${formData.quantity}`
-          }
-        ]
-      },
-      callback: function(response: any) {
-        // Payment successful
-        window.location.href = `/payment-success?reference=${response.reference}&orderId=${response.reference}`;
-      },
-      onClose: function() {
-        // Payment cancelled
-        setLoading(false);
-        showErrorAlert('Payment Cancelled', 'You cancelled the payment process.');
-      }
-    });
-    
-    handler.openIframe();
+  const handlePaystackClose = () => {
+    showErrorAlert('Payment Cancelled', 'Your payment was cancelled. Please try again.');
+  };
+
+  const validateForm = () => {
+    if (!selectedFood) {
+      showErrorAlert('Validation Error', 'Please select a food item.');
+      return false;
+    }
+    if (!deliveryLocation) {
+      showErrorAlert('Validation Error', 'Please select a delivery location.');
+      return false;
+    }
+    if (!phoneNumber) {
+      showErrorAlert('Validation Error', 'Please enter your phone number.');
+      return false;
+    }
+    if (!deliveryDate || !deliveryTime) {
+      showErrorAlert('Validation Error', 'Please select delivery date and time.');
+      return false;
+    }
+    if (!paymentMode) {
+      showErrorAlert('Validation Error', 'Please select a payment method.');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const validation: ValidationResult = validateBookingForm(formData);
-    
-    if (!validation.valid) {
-      setErrors(validation.errors);
-      showErrorAlert('Validation Error', 'Please check the form for errors.');
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      let deliveryTimeISO;
+    if (!validateForm()) return;
+
+    const food = getSelectedFood();
+    if (!food) return;
+
+    // For cash payment, create order directly
+    if (paymentMode === 'Cash') {
       try {
-        const deliveryDate = new Date(formData.deliveryTime);
-        if (isNaN(deliveryDate.getTime())) {
-          throw new Error('Invalid delivery time');
-        }
-        deliveryTimeISO = deliveryDate.toISOString();
-      } catch (err) {
-        console.error('Delivery time conversion error:', err);
-        showErrorAlert('Invalid Delivery Time', 'Please select a valid delivery time.');
-        setLoading(false);
-        return;
-      }
+        setLoading(true);
+        
+        const deliveryDateTime = new Date(deliveryDate!);
+        const [hours, minutes] = deliveryTime.split(':');
+        deliveryDateTime.setHours(parseInt(hours), parseInt(minutes));
 
-      const orderData = {
-        foodId: formData.foodId,
-        quantity: formData.quantity,
-        deliveryLocation: formData.location,
-        phoneNumber: formatGhanaPhone(formData.phoneNumber),
-        deliveryTime: deliveryTimeISO,
-        paymentMode: formData.paymentMode,
-        additionalNotes: formData.additionalInfo,
-        addons: formData.addons,
-      };
-
-      // Check if payment mode is Cash (for backwards compatibility)
-      if (formData.paymentMode === 'Cash') {
-        // Original flow for cash payments
-        console.log('Submitting cash order:', orderData);
+        const orderData = {
+          foodId: selectedFood,
+          quantity,
+          deliveryLocation,
+          phoneNumber,
+          deliveryTime: deliveryDateTime.toISOString(),
+          paymentMode,
+          additionalNotes,
+          addons: selectedAddons,
+        };
 
         const response = await fetch(`${BACKEND_URL}/api/orders`, {
           method: 'POST',
@@ -353,312 +177,272 @@ const BookingForm = () => {
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          console.log('Server response error:', errorData);
-          throw new Error('Failed to place order');
+          throw new Error('Failed to create order');
         }
 
-        const order = await response.json();
-        
-        // Show success dialog for cash orders
-        showSuccessAlert('Order Placed', `Your order has been placed successfully! Order ID: ${order.order_id}`);
+        const result = await response.json();
+        showSuccessAlert('Order Placed', 'Your order has been placed successfully!');
         
         // Reset form
-        setFormData({
-          foodId: '',
-          price: 0,
-          quantity: 1,
-          addons: [],
-          paymentMode: (availablePaymentModes[0] as "Mobile Money" | "Cash") || "Cash",
-          location: '',
-          additionalInfo: '',
-          phoneNumber: '',
-          deliveryTime: ''
-        });
-        setSelectedFood(null);
-        setGalleryImages([]);
-        setGalleryOpen(false);
-      } else {
-        // Paystack payment flow for other payment modes
-        handlePaystackPayment(orderData);
+        setSelectedFood('');
+        setQuantity(1);
+        setDeliveryLocation('');
+        setPhoneNumber('');
+        setDeliveryDate(undefined);
+        setDeliveryTime('');
+        setPaymentMode('');
+        setAdditionalNotes('');
+        setSelectedAddons([]);
+        
+      } catch (error) {
+        console.error('Error creating order:', error);
+        showErrorAlert('Error', 'Failed to place order. Please try again.');
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error processing order:', error);
-      showErrorAlert('Order Error', 'An error occurred while processing your order. Please try again.');
-      setLoading(false);
     }
   };
 
-  const handleCloseConfirmation = () => {
-    // Reset form after successful order
-    setFormData({
-      foodId: '',
-      price: 0,
-      quantity: 1,
-      addons: [],
-      paymentMode: (availablePaymentModes[0] as "Mobile Money" | "Cash") || "Cash",
-      location: '',
-      additionalInfo: '',
-      phoneNumber: '',
-      deliveryTime: ''
-    });
-    setSelectedFood(null);
-    setGalleryImages([]);
-    setGalleryOpen(false);
+  const createPaystackConfig = () => {
+    const food = getSelectedFood();
+    if (!food) return null;
+
+    const deliveryDateTime = new Date(deliveryDate!);
+    const [hours, minutes] = deliveryTime.split(':');
+    deliveryDateTime.setHours(parseInt(hours), parseInt(minutes));
+
+    const orderData = {
+      foodId: selectedFood,
+      quantity,
+      deliveryLocation,
+      phoneNumber,
+      deliveryTime: deliveryDateTime.toISOString(),
+      paymentMode,
+      additionalNotes,
+      addons: selectedAddons,
+    };
+
+    return {
+      reference: new Date().getTime().toString(),
+      email: 'customer@meatdoctorucc.com',
+      amount: Math.round(calculateTotal() * 100),
+      publicKey: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
+      metadata: {
+        orderData: JSON.stringify(orderData)
+      }
+    };
   };
 
-  const openGallery = () => {
-    if (galleryImages.length > 0) {
-      setGalleryOpen(true);
-    }
-  };
-
-  const handlePhoneChange = (value: string) => {
-    setFormData(prev => ({ ...prev, phoneNumber: value }));
-    
-    if (errors.phoneNumber) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.phoneNumber;
-        return newErrors;
-      });
-    }
-  };
-
-  const formClasses = theme === "dark" 
-    ? "space-y-6 bg-gray-800/95 backdrop-blur-sm p-6 rounded-lg shadow-lg border-2 border-gray-600 text-white order-form" 
-    : "space-y-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg";
+  const paystackConfig = createPaystackConfig();
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
-      <form onSubmit={handleSubmit} className={formClasses}>
-        <h2 className="text-2xl font-bold">Order Form</h2>
-        
-        <div className="space-y-2 relative z-30">
-          <Label htmlFor="foodId" className={theme === "dark" ? "form-label" : ""}>Select Food</Label>
-          <div className="relative">
-            <Select
-              value={formData.foodId || undefined}
-              onValueChange={(value) => handleSelectChange('foodId', value)}
-            >
-              <SelectTrigger
-                id="foodId"
-                aria-label="Select food"
-                className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}
-                ref={selectTriggerRef}
-              >
-                <SelectValue placeholder="Select food" />
+    <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-background/95 dark:bg-background/95 border border-border/50">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-center">Place Your Order</CardTitle>
+        <CardDescription className="text-center">
+          Fill in the details below to place your food order
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Food Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="food">Select Food *</Label>
+            <Select value={selectedFood} onValueChange={setSelectedFood}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose your food" />
               </SelectTrigger>
               <SelectContent>
-                {foodItems.length === 0 ? (
-                  <SelectItem value="no-foods" disabled>No food items available</SelectItem>
-                ) : (
-                  foodItems.map((food) => (
-                    <SelectItem key={food.id} value={food.id}>
-                      <div className="flex items-center gap-2">
-                        {food.image_urls && food.image_urls.length > 0 && (
-                          <img src={food.image_urls[0]} alt={food.name} className="h-7 w-7 object-cover rounded mr-1 border" />
-                        )}
-                        <span>{food.name} (GHS {food.price})</span>
-                      </div>
-                    </SelectItem>
-                  ))
-                )}
+                {foods.map((food: any) => (
+                  <SelectItem key={food.id} value={food.id}>
+                    {food.name} - GHS {food.price}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          {errors.foodId && <p className="text-red-500 text-sm">{errors.foodId}</p>}
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="price">Price (GHS)</Label>
-          <Input
-            id="price"
-            name="price"
-            type="number"
-            value={formData.price}
-            onChange={handleInputChange}
-            readOnly
-            className={theme === "dark" ? "bg-gray-800 border-gray-700" : "bg-gray-100"}
-            aria-label="Food price"
-          />
-          {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="quantity">Quantity</Label>
-          <Input
-            id="quantity"
-            name="quantity"
-            type="number"
-            min="1"
-            max="10"
-            value={formData.quantity}
-            onChange={handleQuantityChange}
-            aria-label="Quantity"
-            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
-          />
-          {errors.quantity && <p className="text-red-500 text-sm">{errors.quantity}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label>Addons (Optional)</Label>
-          <div className="flex flex-wrap gap-4">
-            {addonOptions.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No addons available</div>
-            ) : (
-              addonOptions.map((addon) => (
-                <div key={addon.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`addon-${addon.name}`}
-                    checked={(formData.addons || []).includes(addon.name)}
-                    onCheckedChange={() => handleAddonChange(addon.name)}
-                    aria-label={`Add ${addon.name}`}
-                  />
-                  <Label htmlFor={`addon-${addon.name}`} className="cursor-pointer">
-                    {addon.name} (GHS {addon.price})
-                  </Label>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Payment Mode</Label>
-          <RadioGroup
-            value={formData.paymentMode}
-            onValueChange={(value) => handleSelectChange('paymentMode', value as string)}
-            className="flex flex-col space-y-2"
-          >
-            {availablePaymentModes.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No payment modes available</div>
-            ) : (
-              availablePaymentModes.map((mode) => (
-                <div key={mode} className="flex items-center space-x-2">
-                  <RadioGroupItem value={mode} id={`payment-${mode}`} />
-                  <Label htmlFor={`payment-${mode}`}>{mode}</Label>
-                </div>
-              ))
-            )}
-          </RadioGroup>
-          {errors.paymentMode && <p className="text-red-500 text-sm">{errors.paymentMode}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="location">Select Location</Label>
-          <Select
-            value={formData.location}
-            onValueChange={(value) => handleSelectChange('location', value)}
-          >
-            <SelectTrigger id="location" aria-label="Select location" className={theme === "dark" ? "bg-gray-900 border-gray-700" : ""}>
-              <SelectValue placeholder="Select location" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableLocations.length === 0 ? (
-                <SelectItem value="no-locations" disabled>No locations available</SelectItem>
-              ) : (
-                availableLocations.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          {errors.location && <p className="text-red-500 text-sm">{errors.location}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="additionalInfo">Additional Location Info</Label>
-          <Textarea
-            id="additionalInfo"
-            name="additionalInfo"
-            value={formData.additionalInfo}
-            onChange={handleInputChange}
-            placeholder="Landmarks, building name, etc."
-            aria-label="Additional location information"
-            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
-          />
-        </div>
-
-        <PhoneInput
-          value={formData.phoneNumber}
-          onChange={handlePhoneChange}
-          error={errors.phoneNumber}
-          className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
-        />
-
-        <div className="space-y-2">
-          <Label htmlFor="deliveryTime">Delivery Time</Label>
-          <div className="relative">
+          {/* Quantity */}
+          <div className="space-y-2">
+            <Label htmlFor="quantity">Quantity *</Label>
             <Input
-              id="deliveryTime"
-              name="deliveryTime"
-              type="datetime-local"
-              value={formData.deliveryTime}
-              onChange={handleInputChange}
-              aria-label="Delivery time"
-              className={`
-                ${theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
-                pr-10
-              `}
-            />
-            <Calendar 
-              className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
-              }`} 
+              id="quantity"
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              className="w-full"
             />
           </div>
-          {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}
-        </div>
 
-        {selectedFood && selectedFood.image_urls && selectedFood.image_urls.length > 0 && (
-          <div className={`${theme === "dark" ? "p-4 rounded-lg border border-gray-600" : "p-4 rounded-lg border"} cursor-pointer`} onClick={openGallery}>
-            <h3 className="text-md font-medium mb-2">Selected Food</h3>
-            <div className="flex justify-center mb-2">
-              <img 
-                src={selectedFood.image_urls[0]} 
-                alt={selectedFood.name} 
-                className="h-32 w-auto object-cover rounded-md hover:opacity-90 transition-opacity" 
-              />
+          {/* Additional Options */}
+          {additionalOptions.length > 0 && (
+            <div className="space-y-3">
+              <Label>Additional Options</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {additionalOptions.map((option: any) => (
+                  <div key={option.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={option.name}
+                      checked={selectedAddons.includes(option.name)}
+                      onCheckedChange={(checked) => handleAddonChange(option.name, checked as boolean)}
+                    />
+                    <Label htmlFor={option.name} className="text-sm">
+                      {option.name} (+GHS {option.price})
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="text-center font-medium">{selectedFood.name}</p>
-            <p className="text-center text-sm text-muted-foreground">(Click to view larger images)</p>
+          )}
+
+          {/* Delivery Location */}
+          <div className="space-y-2">
+            <Label htmlFor="location">Delivery Location *</Label>
+            <Select value={deliveryLocation} onValueChange={setDeliveryLocation}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select delivery location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((location: any) => (
+                  <SelectItem key={location.id} value={location.name}>
+                    {location.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
 
-        {selectedFood && (
-          <OrderSummary 
-            food={selectedFood} 
-            quantity={formData.quantity} 
-            addons={formData.addons} 
-            addonPrices={addonOptions.reduce((acc, addon) => {
-              acc[addon.name] = addon.price;
-              return acc;
-            }, {} as Record<string, number>)}
-          />
-        )}
+          {/* Phone Number */}
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number *</Label>
+            <PhoneInput value={phoneNumber} onChange={setPhoneNumber} />
+          </div>
 
-        <Button 
-          type="submit" 
-          disabled={loading} 
-          className="w-full bg-food-primary hover:bg-food-primary/90"
-        >
-          {loading ? 'Processing...' : 
-           formData.paymentMode === 'Cash' ? 'Place Order' : 
-           `Pay GHS ${calculateTotalPrice().toFixed(2)} & Place Order`}
-        </Button>
-      </form>
+          {/* Delivery Date and Time */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Delivery Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !deliveryDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deliveryDate ? format(deliveryDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={deliveryDate}
+                    onSelect={setDeliveryDate}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
 
-      <ImageGallery 
-        images={galleryImages} 
-        isOpen={galleryOpen} 
-        onClose={() => setGalleryOpen(false)} 
-      />
-    </div>
+            <div className="space-y-2">
+              <Label htmlFor="time">Delivery Time *</Label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="time"
+                  type="time"
+                  value={deliveryTime}
+                  onChange={(e) => setDeliveryTime(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div className="space-y-2">
+            <Label htmlFor="payment">Payment Method *</Label>
+            <Select value={paymentMode} onValueChange={setPaymentMode}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                {paymentMethods.map((method: any) => (
+                  <SelectItem key={method.id} value={method.name}>
+                    {method.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Additional Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Additional Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              value={additionalNotes}
+              onChange={(e) => setAdditionalNotes(e.target.value)}
+              placeholder="Any special instructions for your order..."
+              rows={3}
+            />
+          </div>
+
+          {/* Order Summary */}
+          {selectedFood && (
+            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+              <h3 className="font-semibold">Order Summary</h3>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>{getSelectedFood()?.name} × {quantity}</span>
+                  <span>GHS {((getSelectedFood()?.price || 0) * quantity).toFixed(2)}</span>
+                </div>
+                {selectedAddons.map(addonName => {
+                  const addon = additionalOptions.find((option: any) => option.name === addonName);
+                  return (
+                    <div key={addonName} className="flex justify-between">
+                      <span>{addonName}</span>
+                      <span>GHS {addon?.price.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+                <div className="border-t pt-2 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>GHS {calculateTotal().toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <div className="pt-4">
+            {paymentMode === 'Mobile Money' && paystackConfig ? (
+              <PaystackButton
+                {...paystackConfig}
+                text={`Pay GHS ${calculateTotal().toFixed(2)} with Mobile Money`}
+                onSuccess={handlePaystackSuccess}
+                onClose={handlePaystackClose}
+                className="w-full bg-food-primary hover:bg-food-primary/90 text-white py-3 px-4 rounded-md font-medium transition-colors disabled:opacity-50"
+                disabled={loading || !validateForm()}
+              />
+            ) : (
+              <Button
+                type="submit"
+                className="w-full bg-food-primary hover:bg-food-primary/90"
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : `Place Order - GHS ${calculateTotal().toFixed(2)}`}
+              </Button>
+            )}
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 
