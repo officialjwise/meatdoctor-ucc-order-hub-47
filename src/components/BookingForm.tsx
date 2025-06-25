@@ -12,6 +12,7 @@ import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import PhoneInput from './PhoneInput';
+import ClockTimePicker from './ClockTimePicker';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 import { PaystackButton } from 'react-paystack';
 
@@ -247,21 +248,6 @@ const BookingForm = () => {
 
   const paystackConfig = createPaystackConfig();
 
-  // Generate time options for the select dropdown
-  const generateTimeOptions = () => {
-    const options = [];
-    for (let hour = 8; hour <= 22; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const displayTime = `${hour > 12 ? hour - 12 : hour === 0 ? 12 : hour}:${minute.toString().padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
-        options.push({ value: timeString, label: displayTime });
-      }
-    }
-    return options;
-  };
-
-  const timeOptions = generateTimeOptions();
-
   return (
     <Card className="w-full max-w-2xl mx-auto backdrop-blur-sm bg-background/95 dark:bg-background/95 border border-border/50">
       <CardHeader>
@@ -378,18 +364,11 @@ const BookingForm = () => {
 
             <div className="space-y-2">
               <Label htmlFor="time">Delivery Time *</Label>
-              <Select value={deliveryTime} onValueChange={setDeliveryTime}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select delivery time" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClockTimePicker
+                value={deliveryTime}
+                onChange={setDeliveryTime}
+                placeholder="Select delivery time"
+              />
             </div>
           </div>
 
