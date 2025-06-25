@@ -1,133 +1,132 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
-const BACKEND_URL = 'http://localhost:3000';
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useNavigate } from 'react-router-dom';
+import AdminNavbar from '@/components/AdminNavbar';
+import BookingsTable from '@/components/BookingsTable';
+import FoodManagement from '@/components/FoodManagement';
+import SettingsPanel from '@/components/SettingsPanel';
+import EnhancedAnalyticsPanel from '@/components/EnhancedAnalyticsPanel';
+import CategoryManagement from '@/components/CategoryManagement';
+import LocationManagement from '@/components/LocationManagement';
+import PaymentMethodManagement from '@/components/PaymentMethodManagement';
+import AdditionalOptionsManagement from '@/components/AdditionalOptionsManagement';
+import AdminDashboard from './AdminDashboard';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import { TableSkeleton } from '@/components/AdminSkeleton';
 
 const Admin = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
-  
+
   useEffect(() => {
-    // Redirect to dashboard if already authenticated
-    const token = localStorage.getItem('adminToken');
-    if (token) {
-      navigate('/admin/dashboard');
-    }
-  }, [navigate]);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email.trim()) {
-      toast.error('Please enter your email address');
-      return;
-    }
-
-    if (!password.trim()) {
-      toast.error('Please enter your password');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/admin-login');
       return;
     }
     
-    // Simple email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          if (response.status === 401 && errorData.message === 'Invalid password') {
-            throw new Error('Invalid password');
-          }
-          throw new Error(errorData.message || `Failed to send OTP (Status: ${response.status})`);
-        } else {
-          throw new Error(`Failed to send OTP (Status: ${response.status}) - Unexpected response format`);
-        }
-      }
-
-      const data = await response.json();
-      toast.success(data.message);
-      localStorage.setItem('tempAdminEmail', email);
-      localStorage.setItem('tempAdminPassword', password);
-      navigate('/admin/otp');
-    } catch (error) {
-      console.error('Error sending OTP:', error);
-      toast.error(error.message || 'Failed to send OTP. Please try again.');
-    } finally {
+    // Simulate loading time for better UX
+    setTimeout(() => {
       setLoading(false);
+    }, 1000);
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AdminNavbar />
+        <div className="container mx-auto p-6">
+          <LoadingSpinner size="lg" text="Loading admin panel..." />
+        </div>
+      </div>
+    );
+  }
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <AdminDashboard />;
+      case 'orders':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <BookingsTable />
+          </React.Suspense>
+        );
+      case 'foods':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <FoodManagement />
+          </React.Suspense>
+        );
+      case 'categories':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <CategoryManagement />
+          </React.Suspense>
+        );
+      case 'locations':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <LocationManagement />
+          </React.Suspense>
+        );
+      case 'payment-methods':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <PaymentMethodManagement />
+          </React.Suspense>
+        );
+      case 'additional-options':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <AdditionalOptionsManagement />
+          </React.Suspense>
+        );
+      case 'analytics':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <EnhancedAnalyticsPanel />
+          </React.Suspense>
+        );
+      case 'settings':
+        return (
+          <React.Suspense fallback={<TableSkeleton />}>
+            <SettingsPanel />
+          </React.Suspense>
+        );
+      default:
+        return <AdminDashboard />;
     }
   };
-  
+
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
-          <CardDescription>
-            Enter your email and password to receive an OTP
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                placeholder="admin@meatdoctorucc.com"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                placeholder="Enter your password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={loading}
-              aria-label="Send OTP"
-            >
-              {loading ? 'Sending OTP...' : 'Send OTP'}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="text-center text-sm text-gray-500">
-          <p className="w-full">
-            Back to <a href="/" className="text-food-primary hover:underline">Booking Page</a>
-          </p>
-        </CardFooter>
-      </Card>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AdminNavbar />
+      <div className="container mx-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 mb-6">
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="foods">Foods</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
+            <TabsTrigger value="locations">Locations</TabsTrigger>
+            <TabsTrigger value="payment-methods">Payment</TabsTrigger>
+            <TabsTrigger value="additional-options">Add-ons</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={activeTab} className="space-y-6">
+            {renderTabContent()}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
