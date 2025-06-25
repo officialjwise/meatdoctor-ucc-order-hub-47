@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -389,8 +390,7 @@ const BookingForm = () => {
   };
 
   const handleCloseConfirmation = () => {
-    setShowConfirmation(false);
-    
+    // Reset form after successful order
     setFormData({
       foodId: '',
       price: 0,
