@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      additional_options: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          price: number | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          price?: number | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          price?: number | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       admins: {
         Row: {
           created_at: string | null
@@ -33,38 +60,94 @@ export type Database = {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       foods: {
         Row: {
-          category: string | null
+          additional_option_ids: string[] | null
+          category_id: string | null
           created_at: string | null
           description: string | null
           id: string
-          image_url: string | null
+          image_urls: Json | null
           is_available: boolean | null
           name: string
           price: number
           updated_at: string | null
         }
         Insert: {
-          category?: string | null
+          additional_option_ids?: string[] | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
-          image_url?: string | null
+          image_urls?: Json | null
           is_available?: boolean | null
           name: string
           price: number
           updated_at?: string | null
         }
         Update: {
-          category?: string | null
+          additional_option_ids?: string[] | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
-          image_url?: string | null
+          image_urls?: Json | null
           is_available?: boolean | null
           name?: string
           price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "foods_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -72,6 +155,7 @@ export type Database = {
       orders: {
         Row: {
           additional_notes: string | null
+          addons: string[] | null
           created_at: string | null
           delivery_location: string
           delivery_time: string
@@ -87,6 +171,7 @@ export type Database = {
         }
         Insert: {
           additional_notes?: string | null
+          addons?: string[] | null
           created_at?: string | null
           delivery_location: string
           delivery_time: string
@@ -102,6 +187,7 @@ export type Database = {
         }
         Update: {
           additional_notes?: string | null
+          addons?: string[] | null
           created_at?: string | null
           delivery_location?: string
           delivery_time?: string
@@ -149,28 +235,103 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      pending_otps: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          otp: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          otp: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          otp?: string
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           background_image_url: string | null
+          contact_address: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string | null
+          dark_mode_enabled: boolean | null
           email_settings: Json | null
+          footer_text: string | null
           id: string
+          notifications_enabled: boolean | null
+          site_description: string | null
+          site_name: string | null
           sms_settings: Json | null
           updated_at: string | null
         }
         Insert: {
           background_image_url?: string | null
+          contact_address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          dark_mode_enabled?: boolean | null
           email_settings?: Json | null
+          footer_text?: string | null
           id?: string
+          notifications_enabled?: boolean | null
+          site_description?: string | null
+          site_name?: string | null
           sms_settings?: Json | null
           updated_at?: string | null
         }
         Update: {
           background_image_url?: string | null
+          contact_address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string | null
+          dark_mode_enabled?: boolean | null
           email_settings?: Json | null
+          footer_text?: string | null
           id?: string
+          notifications_enabled?: boolean | null
+          site_description?: string | null
+          site_name?: string | null
           sms_settings?: Json | null
           updated_at?: string | null
         }

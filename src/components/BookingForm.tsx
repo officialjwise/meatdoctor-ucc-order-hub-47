@@ -32,7 +32,15 @@ import { useTheme } from '@/hooks/use-theme';
 import ImageGallery from './ImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
+// Paystack integration
+declare global {
+  interface Window {
+    PaystackPop: any;
+  }
+}
+
 const BACKEND_URL = 'http://localhost:3000';
+const PAYSTACK_PUBLIC_KEY = 'pk_test_your_paystack_public_key'; // Replace with your actual public key
 
 const BookingForm = () => {
   const { theme } = useTheme();
@@ -49,8 +57,6 @@ const BookingForm = () => {
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [orderId, setOrderId] = useState('');
   const [selectedFood, setSelectedFood] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -233,6 +239,64 @@ const BookingForm = () => {
     });
   };
 
+  const calculateTotalPrice = () => {
+    if (!selectedFood) return 0;
+    
+    const foodTotal = selectedFood.price * formData.quantity;
+    const addonsTotal = (formData.addons || []).reduce((sum, addonName) => {
+      const addonPrice = addonOptions.find(a => a.name === addonName)?.price || 0;
+      return sum + addonPrice;
+    }, 0);
+    
+    return foodTotal + addonsTotal;
+  };
+
+  const initializePaystack = () => {
+    if (!window.PaystackPop) {
+      const script = document.createElement('script');
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  };
+
+  useEffect(() => {
+    initializePaystack();
+  }, []);
+
+  const handlePaystackPayment = (orderData: any) => {
+    const totalAmount = calculateTotalPrice() * 100; // Convert to kobo
+    
+    const handler = window.PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY,
+      email: 'customer@example.com', // You might want to add email to your form
+      amount: totalAmount,
+      currency: 'GHS',
+      ref: `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      metadata: {
+        orderData: JSON.stringify(orderData),
+        custom_fields: [
+          {
+            display_name: "Order Details",
+            variable_name: "order_details",
+            value: `${selectedFood?.name} x ${formData.quantity}`
+          }
+        ]
+      },
+      callback: function(response: any) {
+        // Payment successful
+        window.location.href = `/payment-success?reference=${response.reference}&orderId=${response.reference}`;
+      },
+      onClose: function() {
+        // Payment cancelled
+        setLoading(false);
+        showErrorAlert('Payment Cancelled', 'You cancelled the payment process.');
+      }
+    });
+    
+    handler.openIframe();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -272,31 +336,53 @@ const BookingForm = () => {
         addons: formData.addons,
       };
 
-      console.log('Submitting order:', orderData);
+      // Check if payment mode is Cash (for backwards compatibility)
+      if (formData.paymentMode === 'Cash') {
+        // Original flow for cash payments
+        console.log('Submitting cash order:', orderData);
 
-      const response = await fetch(`${BACKEND_URL}/api/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData),
-      });
+        const response = await fetch(`${BACKEND_URL}/api/orders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.log('Server response error:', errorData);
-        throw new Error('Failed to place order');
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.log('Server response error:', errorData);
+          throw new Error('Failed to place order');
+        }
+
+        const order = await response.json();
+        
+        // Show success dialog for cash orders
+        showSuccessAlert('Order Placed', `Your order has been placed successfully! Order ID: ${order.order_id}`);
+        
+        // Reset form
+        setFormData({
+          foodId: '',
+          price: 0,
+          quantity: 1,
+          addons: [],
+          paymentMode: (availablePaymentModes[0] as "Mobile Money" | "Cash") || "Cash",
+          location: '',
+          additionalInfo: '',
+          phoneNumber: '',
+          deliveryTime: ''
+        });
+        setSelectedFood(null);
+        setGalleryImages([]);
+        setGalleryOpen(false);
+      } else {
+        // Paystack payment flow for other payment modes
+        handlePaystackPayment(orderData);
       }
-
-      const order = await response.json();
-      setOrderId(order.order_id);
-      setShowConfirmation(true);
-      
-      console.log('Order submitted:', order);
 
       setLoading(false);
     } catch (error) {
-      console.error('Error saving booking:', error);
+      console.error('Error processing order:', error);
       showErrorAlert('Order Error', 'An error occurred while processing your order. Please try again.');
       setLoading(false);
     }
@@ -544,55 +630,11 @@ const BookingForm = () => {
           disabled={loading} 
           className="w-full bg-food-primary hover:bg-food-primary/90"
         >
-          {loading ? 'Processing...' : 'Place Order'}
+          {loading ? 'Processing...' : 
+           formData.paymentMode === 'Cash' ? 'Place Order' : 
+           `Pay GHS ${calculateTotalPrice().toFixed(2)} & Place Order`}
         </Button>
       </form>
-
-      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent className={theme === "dark" ? "sm:max-w-md bg-gray-800 text-white" : "sm:max-w-md"}>
-          <DialogHeader>
-            <DialogTitle className="text-center">Order Confirmed!</DialogTitle>
-            <DialogDescription className="text-center" id="order-confirmation-description">
-              Your order has been successfully placed. Below are the details of your order.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4" aria-describedby="order-confirmation-description">
-            <div className="flex flex-col items-center justify-center">
-              <p className="font-bold text-xl text-food-primary">Order ID: {orderId}</p>
-              <p>Save this ID to track your order status.</p>
-            </div>
-            
-            {selectedFood && (
-              <div className={theme === "dark" ? "border rounded-lg p-4 bg-gray-700 border-gray-600" : "border rounded-lg p-4 bg-gray-50"}>
-                <h3 className="font-semibold mb-2">Order Details:</h3>
-                <p><span className="font-medium">Food:</span> {selectedFood.name}</p>
-                <p><span className="font-medium">Quantity:</span> {formData.quantity}</p>
-                {formData.addons && formData.addons.length > 0 && (
-                  <p><span className="font-medium">Addons:</span> {formData.addons.join(', ')}</p>
-                )}
-                <p><span className="font-medium">Total Price:</span> GHS {(
-                  selectedFood.price * formData.quantity +
-                  (formData.addons || []).reduce((sum, addonName) => {
-                    const addonPrice = addonOptions.find(a => a.name === addonName)?.price || 0;
-                    return sum + addonPrice;
-                  }, 0)
-                ).toFixed(2)}</p>
-                <p><span className="font-medium">Payment:</span> {formData.paymentMode}</p>
-                <p><span className="font-medium">Delivery Location:</span> {formData.location}</p>
-                <p><span className="font-medium">Delivery Time:</span> {new Date(formData.deliveryTime).toLocaleString()}</p>
-                <p><span className="font-medium">Status:</span> <span className="text-amber-500 font-medium">Pending</span></p>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button onClick={handleCloseConfirmation} className="w-full">
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ImageGallery 
         images={galleryImages} 
