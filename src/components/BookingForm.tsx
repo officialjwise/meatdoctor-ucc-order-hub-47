@@ -41,16 +41,54 @@ const BookingForm = () => {
   const [additionalOptions, setAdditionalOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [paystackLoaded, setPaystackLoaded] = useState(false);
 
-  // Load Paystack script
+  // Enhanced Paystack script loading
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://js.paystack.co/v1/inline.js';
-    script.async = true;
-    document.head.appendChild(script);
+    const loadPaystackScript = () => {
+      // Check if Paystack is already loaded
+      if (window.PaystackPop) {
+        console.log('Paystack already loaded');
+        setPaystackLoaded(true);
+        return;
+      }
+
+      // Check if script is already being loaded
+      const existingScript = document.querySelector('script[src*="paystack"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => {
+          console.log('Paystack script loaded from existing script');
+          setPaystackLoaded(true);
+        });
+        return;
+      }
+
+      console.log('Loading Paystack script...');
+      const script = document.createElement('script');
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      
+      script.onload = () => {
+        console.log('Paystack script loaded successfully');
+        setPaystackLoaded(true);
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load Paystack script');
+        showErrorAlert('Payment Error', 'Failed to load payment system. Please refresh the page and try again.');
+      };
+      
+      document.head.appendChild(script);
+    };
+
+    loadPaystackScript();
 
     return () => {
-      document.head.removeChild(script);
+      // Clean up script on unmount
+      const script = document.querySelector('script[src*="paystack"]');
+      if (script) {
+        document.head.removeChild(script);
+      }
     };
   }, []);
 
@@ -222,8 +260,12 @@ const BookingForm = () => {
   };
 
   const handlePaystackPayment = () => {
-    if (!window.PaystackPop) {
-      showErrorAlert('Payment Error', 'Paystack is not loaded. Please refresh and try again.');
+    console.log('Paystack loaded status:', paystackLoaded);
+    console.log('Window PaystackPop:', window.PaystackPop);
+
+    if (!paystackLoaded || !window.PaystackPop) {
+      console.error('Paystack not loaded');
+      showErrorAlert('Payment Error', 'Payment system is still loading. Please wait a moment and try again.');
       return;
     }
 
@@ -281,7 +323,13 @@ const BookingForm = () => {
       }
     };
 
-    window.PaystackPop.newTransaction(paystackConfig);
+    try {
+      console.log('Opening Paystack popup with config:', paystackConfig);
+      window.PaystackPop.newTransaction(paystackConfig);
+    } catch (error) {
+      console.error('Error opening Paystack popup:', error);
+      showErrorAlert('Payment Error', 'Failed to open payment window. Please try again.');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -486,11 +534,13 @@ const BookingForm = () => {
               <Button
                 type="submit"
                 className="w-full bg-food-primary hover:bg-food-primary/90"
-                disabled={loading || !isFormValid()}
+                disabled={loading || !isFormValid() || (paymentMode === 'Mobile Money' && !paystackLoaded)}
               >
                 {loading ? 'Processing...' : 
                   paymentMode === 'Mobile Money' 
-                    ? `Pay GHS ${calculateTotal().toFixed(2)} with Mobile Money`
+                    ? paystackLoaded 
+                      ? `Pay GHS ${calculateTotal().toFixed(2)} with Mobile Money`
+                      : 'Loading Payment System...'
                     : `Place Order - GHS ${calculateTotal().toFixed(2)}`
                 }
               </Button>
