@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import Sweetalert2 from 'sweetalert2';
 import { Analytics, Booking } from '@/lib/types';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const EnhancedAnalyticsPanel = () => {
   const { theme } = useTheme();

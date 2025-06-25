@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { BellRing } from 'lucide-react';
 import { toast } from "sonner";
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const BookingsTable = ({ bookings, onBookingsUpdate }) => {
   const [selectedBooking, setSelectedBooking] = useState(null);

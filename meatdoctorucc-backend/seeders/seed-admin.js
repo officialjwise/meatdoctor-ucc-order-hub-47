@@ -5,12 +5,12 @@ const logger = require('../utils/logger');
 
 const seedAdmin = async () => {
   const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
+    process.env.SUPABASE_URL || 'https://hpehaqsqcgdizcknchwj.supabase.co',
+    process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZWhhcXNxY2dkaXpja25jaHdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTM5NjE2MiwiZXhwIjoyMDYwOTcyMTYyfQ.8n_2BljUEIt54wdtGp_e0vtnYJrO8_7Hw44xNDXeB44',
   );
 
-  const email = process.env.ADMIN_EMAIL;
-  const password = process.env.ADMIN_PASSWORD;
+  const email = process.env.ADMIN_EMAIL || 'officialjwise20@gmail.com';
+  const password = process.env.ADMIN_PASSWORD || 'Amoako@21';
   const saltRounds = 10;
 
   try {

@@ -2,18 +2,39 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import type { UserConfig, ConfigEnv } from 'vite';
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+interface ServerProxy {
+  '/api': {
+    target: string;
+    changeOrigin: boolean;
+    secure: boolean;
+    rewrite: (path: string) => string;
+  };
+}
+
+interface ServerConfig {
+  host: string;
+  port: number;
+  proxy: ServerProxy;
+}
+
+interface ResolveConfig {
+  alias: {
+    [key: string]: string;
+  };
+}
+
+export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
   server: {
     host: "::",
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '/api'), // Ensure the path matches the backend route
+        rewrite: (path: string) => path.replace(/^\/api/, '/api'), 
       },
     },
   },
@@ -25,5 +46,8 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  define: {
+    __WS_TOKEN__: JSON.stringify(process.env.WS_TOKEN || ''),  // Add this line
   },
 }));

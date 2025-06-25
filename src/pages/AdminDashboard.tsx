@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { Bell, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const AdminDashboard = () => {
   const isMobile = useIsMobile();

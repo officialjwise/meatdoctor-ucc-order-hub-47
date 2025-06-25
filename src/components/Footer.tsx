@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sweetalert2 from 'sweetalert2';
 import DOMPurify from 'dompurify';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const Footer = () => {
   const [siteName, setSiteName] = useState('MeatDoctor UCC');

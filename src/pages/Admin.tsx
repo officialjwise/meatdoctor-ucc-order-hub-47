@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const Admin = () => {
   const [email, setEmail] = useState('');

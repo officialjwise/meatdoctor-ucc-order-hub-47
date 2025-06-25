@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import Sweetalert2 from 'sweetalert2';
 import { SiteSettings } from '@/lib/types';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const SettingsPanel = () => {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({

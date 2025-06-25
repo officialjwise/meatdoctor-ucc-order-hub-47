@@ -22,6 +22,14 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
+// Extend the jsPDF type definition to include autoTable
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => any;
+    lastAutoTable: { finalY: number };
+  }
+}
+
 const COLORS = ['#E63946', '#F48C06', '#457B9D', '#8FBC8F', '#A8DADC'];
 const STATUS_COLORS = {
   Pending: '#F59E0B',
@@ -30,7 +38,7 @@ const STATUS_COLORS = {
   Cancelled: '#EF4444',
 };
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const AnalyticsPanel = () => {
   const [analytics, setAnalytics] = useState({
@@ -282,7 +290,7 @@ const AnalyticsPanel = () => {
           <label className="font-medium">Start Date:</label>
           <DatePicker
             selected={startDate}
-            onChange={(date) => setStartDate(date)}
+            onChange={(date: Date) => setStartDate(date)}
             showTimeSelect
             dateFormat="Pp"
             className="border rounded px-2 py-1"
@@ -292,7 +300,7 @@ const AnalyticsPanel = () => {
           <label className="font-medium">End Date:</label>
           <DatePicker
             selected={endDate}
-            onChange={(date) => setEndDate(date)}
+            onChange={(date: Date) => setEndDate(date)}
             showTimeSelect
             dateFormat="Pp"
             className="border rounded px-2 py-1"

@@ -32,7 +32,7 @@ import { useTheme } from '@/hooks/use-theme';
 import ImageGallery from './ImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 const BookingForm = () => {
   const { theme } = useTheme();

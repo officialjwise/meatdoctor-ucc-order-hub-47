@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import Sweetalert2 from 'sweetalert2';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = 'http://localhost:3000';
 
 // Define the Location interface with is_active and string id
 interface Location {
