@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import BookingForm from '@/components/BookingForm';
@@ -69,7 +70,6 @@ const Index = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          <a href="/admin" className="text-sm hover:underline">Admin</a>
           <ThemeToggle />
         </div>
       </header>
