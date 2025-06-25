@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Calendar } from 'lucide-react';
 import { 
   Select, 
   SelectContent, 
@@ -45,6 +46,7 @@ const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae10
 
 const BookingForm = () => {
   const { theme } = useTheme();
+  
   const [formData, setFormData] = useState<BookingFormData>({
     foodId: '',
     price: 0,
@@ -582,16 +584,12 @@ const BookingForm = () => {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="phoneNumber">Phone Number</Label>
-          <PhoneInput
-            value={formData.phoneNumber}
-            onChange={handlePhoneChange}
-            error={errors.phoneNumber}
-            className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
-          />
-          {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
-        </div>
+        <PhoneInput
+          value={formData.phoneNumber}
+          onChange={handlePhoneChange}
+          error={errors.phoneNumber}
+          className={theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
+        />
 
         <div className="space-y-2">
           <Label htmlFor="deliveryTime">Delivery Time</Label>
@@ -605,15 +603,13 @@ const BookingForm = () => {
               aria-label="Delivery time"
               className={`
                 ${theme === "dark" ? "bg-gray-900 border-gray-700 text-white" : ""}
-                [&::-webkit-calendar-picker-indicator]:opacity-100 
-                [&::-webkit-calendar-picker-indicator]:brightness-0 
-                [&::-webkit-calendar-picker-indicator]:invert
-                ${theme === "dark" ? "[&::-webkit-calendar-picker-indicator]:filter-none [&::-webkit-calendar-picker-indicator]:brightness-100" : ""}
-                [&::-webkit-calendar-picker-indicator]:cursor-pointer
-                [&::-webkit-calendar-picker-indicator]:p-1
-                [&::-webkit-calendar-picker-indicator]:rounded
-                [&::-webkit-calendar-picker-indicator]:hover:bg-accent
+                pr-10
               `}
+            />
+            <Calendar 
+              className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${
+                theme === "dark" ? "text-gray-300" : "text-gray-600"
+              }`} 
             />
           </div>
           {errors.deliveryTime && <p className="text-red-500 text-sm">{errors.deliveryTime}</p>}

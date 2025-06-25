@@ -2,6 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 
 interface PhoneInputProps {
   value: string;
@@ -17,7 +24,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   onChange,
   error,
   label = "Phone Number",
-  placeholder = "XX XXX XXXX",
+  placeholder = "123 456 789",
   className = ""
 }) => {
   const [displayValue, setDisplayValue] = useState('');
@@ -49,11 +56,11 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     
     // Format for display (add spaces for readability)
     let formattedDisplay = inputValue;
-    if (inputValue.length > 2) {
-      formattedDisplay = inputValue.substring(0, 2) + ' ' + inputValue.substring(2);
+    if (inputValue.length > 3) {
+      formattedDisplay = inputValue.substring(0, 3) + ' ' + inputValue.substring(3);
     }
-    if (inputValue.length > 5) {
-      formattedDisplay = inputValue.substring(0, 2) + ' ' + inputValue.substring(2, 5) + ' ' + inputValue.substring(5, 9);
+    if (inputValue.length > 6) {
+      formattedDisplay = inputValue.substring(0, 3) + ' ' + inputValue.substring(3, 6) + ' ' + inputValue.substring(6, 9);
     }
     
     setDisplayValue(formattedDisplay);
@@ -68,20 +75,34 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
 
   return (
     <div className="space-y-2">
-      {label && <Label htmlFor="phone-input">{label}</Label>}
-      <div className="relative">
-        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2 pointer-events-none">
-          <span className="text-2xl">🇬🇭</span>
-          <span className="text-sm text-muted-foreground">+233</span>
-        </div>
+      {label && <Label htmlFor="phone-input">{label} *</Label>}
+      <div className="flex gap-2">
+        <Select value="+233" disabled>
+          <SelectTrigger className="w-32">
+            <SelectValue>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🇬🇭</span>
+                <span>+233</span>
+              </div>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="+233">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🇬🇭</span>
+                <span>+233</span>
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <Input
           id="phone-input"
           type="tel"
           value={displayValue}
           onChange={handleInputChange}
           placeholder={placeholder}
-          className={`pl-20 ${className} ${error ? 'border-red-500' : ''}`}
-          maxLength={11} // Max length for display (XX XXX XXXX)
+          className={`flex-1 ${className} ${error ? 'border-red-500' : ''}`}
+          maxLength={11} // Max length for display (XXX XXX XXX)
         />
       </div>
       {error && <p className="text-red-500 text-sm">{error}</p>}
