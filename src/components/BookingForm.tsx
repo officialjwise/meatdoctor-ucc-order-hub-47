@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,7 @@ import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 import PhoneNumberInput from './PhoneNumberInput';
 
 import { Food, Location, PaymentMethod } from '@/lib/types';
+import supabase from '@/lib/supabase';
 
 interface AddonOptions {
   id: string;
@@ -38,50 +38,53 @@ const BookingForm = () => {
 
   useEffect(() => {
     const fetchFoods = async () => {
-      try {
-        const response = await fetch('/api/foods');
-        if (response.ok) {
-          const data = await response.json();
-          setFoods(data || []);
-        }
-      } catch (error) {
+      const { data, error } = await supabase
+        .from('foods')
+        .select('*')
+        .eq('is_available', true);
+
+      if (error) {
         console.error('Error fetching foods:', error);
+      } else {
+        setFoods(data || []);
       }
     };
 
     const fetchLocations = async () => {
-      try {
-        const response = await fetch('/api/locations');
-        if (response.ok) {
-          const data = await response.json();
-          setLocations(data || []);
-        }
-      } catch (error) {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) {
         console.error('Error fetching locations:', error);
+      } else {
+        setLocations(data || []);
       }
     };
 
     const fetchPaymentMethods = async () => {
-      try {
-        const response = await fetch('/api/payment-methods');
-        if (response.ok) {
-          const data = await response.json();
-          setPaymentMethods(data || []);
-        }
-      } catch (error) {
+      const { data, error } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) {
         console.error('Error fetching payment methods:', error);
+      } else {
+        setPaymentMethods(data || []);
       }
     };
 
     const fetchAddons = async () => {
-      try {
-        const response = await fetch('/api/additional-options');
-        if (response.ok) {
-          const data = await response.json();
-          setAvailableAddons(data || []);
-        }
-      } catch (error) {
+      const { data, error } = await supabase
+        .from('additional_options')
+        .select('*');
+
+      if (error) {
         console.error('Error fetching addons:', error);
+      } else {
+        setAvailableAddons(data || []);
       }
     };
 
@@ -201,7 +204,7 @@ const BookingForm = () => {
               />
             </div>
 
-            {/* Addons - Original checkbox implementation */}
+            {/* Addons */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 Additional Options
@@ -211,27 +214,22 @@ const BookingForm = () => {
                   </Badge>
                 )}
               </Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {availableAddons.map((addon) => (
-                  <div key={addon.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={addon.id}
-                      checked={selectedAddons.includes(addon.name)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedAddons([...selectedAddons, addon.name]);
-                        } else {
-                          setSelectedAddons(selectedAddons.filter((name) => name !== addon.name));
-                        }
-                      }}
-                    />
-                    <Label
-                      htmlFor={addon.id}
-                      className="text-sm font-normal cursor-pointer"
-                    >
-                      {addon.name} (+GHS {addon.price})
-                    </Label>
-                  </div>
+                  <Button
+                    key={addon.id}
+                    variant={selectedAddons.includes(addon.name) ? 'default' : 'outline'}
+                    className="rounded-full text-sm"
+                    onClick={() => {
+                      if (selectedAddons.includes(addon.name)) {
+                        setSelectedAddons(selectedAddons.filter((name) => name !== addon.name));
+                      } else {
+                        setSelectedAddons([...selectedAddons, addon.name]);
+                      }
+                    }}
+                  >
+                    {addon.name} (+GHS {addon.price})
+                  </Button>
                 ))}
               </div>
             </div>
@@ -251,7 +249,7 @@ const BookingForm = () => {
               />
             </div>
 
-            {/* Phone Number - Using the improved PhoneNumberInput component with Ghana flag */}
+            {/* Phone Number */}
             <PhoneNumberInput
               value={phoneNumber}
               onChange={setPhoneNumber}
@@ -278,7 +276,7 @@ const BookingForm = () => {
               </Select>
             </div>
 
-            {/* Delivery Time - With improved calendar icon visibility */}
+            {/* Delivery Time */}
             <div className="space-y-2">
               <Label htmlFor="deliveryTime" className="text-sm font-medium flex items-center gap-2">
                 <CalendarIcon className="h-4 w-4" />
@@ -290,7 +288,7 @@ const BookingForm = () => {
                 value={deliveryTime}
                 onChange={(e) => setDeliveryTime(e.target.value)}
                 min={new Date().toISOString().slice(0, 16)}
-                className="dark:bg-gray-800 dark:border-gray-600 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:filter [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:w-5 [&::-webkit-calendar-picker-indicator]:h-5"
+                className="dark:bg-gray-800 dark:border-gray-600 dark:text-white [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                 required
               />
             </div>
