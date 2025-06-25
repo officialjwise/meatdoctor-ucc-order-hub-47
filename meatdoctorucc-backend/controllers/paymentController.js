@@ -38,6 +38,9 @@ const verifyPaystackPayment = async (req, res, next) => {
     const orderData = JSON.parse(paymentData.data.metadata.orderData);
     console.log('Order data from payment:', orderData);
     
+    // Get the actual amount paid from Paystack response (in kobo, convert to cedis)
+    const actualAmountPaid = paymentData.data.amount / 100;
+    
     // Fetch food details
     const { data: food, error: foodError } = await supabase
       .from('foods')
@@ -52,6 +55,7 @@ const verifyPaystackPayment = async (req, res, next) => {
 
     // Fetch addon details if addons are provided
     let addonsTotal = 0;
+    let addonDetails = [];
     if (orderData.addons && orderData.addons.length > 0) {
       const { data: addonData, error: addonError } = await supabase
         .from('additional_options')
@@ -62,6 +66,7 @@ const verifyPaystackPayment = async (req, res, next) => {
         logger.error('Addon fetch error:', addonError.message);
         throw new Error('Failed to fetch addon details');
       }
+      addonDetails = addonData;
       addonsTotal = addonData.reduce((sum, addon) => sum + addon.price, 0);
     }
 
@@ -107,17 +112,50 @@ const verifyPaystackPayment = async (req, res, next) => {
 
     // Try to send SMS notifications, but don't fail the order if SMS fails
     try {
-      // SMS to the customer
-      const customerSmsContent = `Payment Successful! Order Confirmed!\n\nOrder ID: ${generatedOrderId}\nYour payment of GHS ${totalPrice.toFixed(2)} has been confirmed.\n\nOrder Details:\nFood: ${food.name}\nQuantity: ${orderData.quantity}\n${orderData.addons && orderData.addons.length > 0 ? `Addons: ${orderData.addons.join(', ')}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${orderData.paymentMode}\nDelivery Location: ${orderData.deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Confirmed`;
+      // SMS to the customer with correct payment details
+      const customerSmsContent = `PAYMENT CONFIRMED! 💳✅
+
+Order ID: ${generatedOrderId}
+Payment Ref: ${reference}
+Amount Paid: GHS ${actualAmountPaid.toFixed(2)}
+
+ORDER DETAILS:
+🍽️ ${food.name} x ${orderData.quantity}${orderData.addons && orderData.addons.length > 0 ? `
+🍟 Add-ons: ${orderData.addons.join(', ')}` : ''}
+📍 Delivery: ${orderData.deliveryLocation}
+⏰ Time: ${deliveryDate}
+💰 Total: GHS ${actualAmountPaid.toFixed(2)}
+✅ Status: CONFIRMED
+
+Track your order: meatdoctorucc.com/track-order/${generatedOrderId}
+
+Thank you for choosing MeatDoctor UCC! 🍔`;
 
       await sendSMS({
         to: orderData.phoneNumber,
         content: customerSmsContent,
       });
 
-      // SMS to the admin
+      // SMS to the admin with payment confirmation
       const adminPhoneNumber = '+233543482189';
-      const adminSmsContent = `New Paid Order Received!\n\nOrder ID: ${generatedOrderId}\nPayment Reference: ${reference}\nCustomer Phone: ${orderData.phoneNumber}\nFood: ${food.name}\nQuantity: ${orderData.quantity}\n${orderData.addons && orderData.addons.length > 0 ? `Addons: ${orderData.addons.join(', ')}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${orderData.paymentMode} (PAID)\nDelivery Location: ${orderData.deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Confirmed`;
+      const adminSmsContent = `🚨 NEW PAID ORDER RECEIVED! 💰
+
+Order ID: ${generatedOrderId}
+Payment Ref: ${reference}
+Amount Received: GHS ${actualAmountPaid.toFixed(2)}
+
+CUSTOMER INFO:
+📞 ${orderData.phoneNumber}
+📍 ${orderData.deliveryLocation}
+
+ORDER DETAILS:
+🍽️ ${food.name} x ${orderData.quantity}${orderData.addons && orderData.addons.length > 0 ? `
+🍟 Add-ons: ${orderData.addons.join(', ')}` : ''}
+⏰ Delivery: ${deliveryDate}
+💳 Payment: ${orderData.paymentMode} (PAID ✅)
+💰 Total: GHS ${actualAmountPaid.toFixed(2)}
+
+Status: CONFIRMED - Ready to prepare! 🍳`;
 
       await sendSMS({
         to: adminPhoneNumber,
@@ -132,9 +170,11 @@ const verifyPaystackPayment = async (req, res, next) => {
 
     res.status(200).json({
       ...order,
-      totalPrice,
+      totalPrice: actualAmountPaid, // Use the actual amount paid from Paystack
       foodName: food.name,
       paymentStatus: 'Completed',
+      paymentReference: reference,
+      amountPaid: actualAmountPaid,
     });
   } catch (err) {
     logger.error(`Error in verifyPaystackPayment: ${err.message}`);

@@ -54,12 +54,12 @@ const PaymentSuccess = () => {
 
   if (isVerifying) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-green-600 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Verifying Payment</h2>
-            <p className="text-gray-600">Please wait while we verify your payment...</p>
+            <p className="text-gray-600 dark:text-gray-300">Please wait while we verify your payment...</p>
           </CardContent>
         </Card>
       </div>
@@ -67,7 +67,7 @@ const PaymentSuccess = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
@@ -81,11 +81,20 @@ const PaymentSuccess = () => {
         
         <CardContent className="space-y-4">
           {orderDetails && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">Order Details:</h3>
-              <p><span className="font-medium">Order ID:</span> {orderDetails.order_id}</p>
-              <p><span className="font-medium">Amount:</span> GHS {orderDetails.totalPrice}</p>
-              <p><span className="font-medium">Status:</span> <span className="text-green-600">Confirmed</span></p>
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border dark:border-gray-700">
+              <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Order Details:</h3>
+              <div className="space-y-1 text-sm">
+                <p className="text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Order ID:</span> {orderDetails.order_id}
+                </p>
+                <p className="text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Amount:</span> GHS {orderDetails.totalPrice}
+                </p>
+                <p className="text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Status:</span> 
+                  <span className="text-green-600 ml-1">Confirmed</span>
+                </p>
+              </div>
             </div>
           )}
           
