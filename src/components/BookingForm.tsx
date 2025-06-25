@@ -201,7 +201,7 @@ const BookingForm = () => {
               />
             </div>
 
-            {/* Addons - Back to original checkbox implementation */}
+            {/* Addons - Original checkbox implementation */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 Additional Options
@@ -251,7 +251,7 @@ const BookingForm = () => {
               />
             </div>
 
-            {/* Phone Number - Using the new PhoneNumberInput component */}
+            {/* Phone Number - Using the improved PhoneNumberInput component with Ghana flag */}
             <PhoneNumberInput
               value={phoneNumber}
               onChange={setPhoneNumber}
