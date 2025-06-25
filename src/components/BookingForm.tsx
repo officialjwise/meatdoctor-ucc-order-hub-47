@@ -201,7 +201,7 @@ const BookingForm = () => {
               />
             </div>
 
-            {/* Addons */}
+            {/* Addons - Back to original checkbox implementation */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 Additional Options
@@ -211,22 +211,27 @@ const BookingForm = () => {
                   </Badge>
                 )}
               </Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {availableAddons.map((addon) => (
-                  <Button
-                    key={addon.id}
-                    variant={selectedAddons.includes(addon.name) ? 'default' : 'outline'}
-                    className="rounded-full text-sm"
-                    onClick={() => {
-                      if (selectedAddons.includes(addon.name)) {
-                        setSelectedAddons(selectedAddons.filter((name) => name !== addon.name));
-                      } else {
-                        setSelectedAddons([...selectedAddons, addon.name]);
-                      }
-                    }}
-                  >
-                    {addon.name} (+GHS {addon.price})
-                  </Button>
+                  <div key={addon.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={addon.id}
+                      checked={selectedAddons.includes(addon.name)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedAddons([...selectedAddons, addon.name]);
+                        } else {
+                          setSelectedAddons(selectedAddons.filter((name) => name !== addon.name));
+                        }
+                      }}
+                    />
+                    <Label
+                      htmlFor={addon.id}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {addon.name} (+GHS {addon.price})
+                    </Label>
+                  </div>
                 ))}
               </div>
             </div>
@@ -246,7 +251,7 @@ const BookingForm = () => {
               />
             </div>
 
-            {/* Phone Number */}
+            {/* Phone Number - Using the new PhoneNumberInput component */}
             <PhoneNumberInput
               value={phoneNumber}
               onChange={setPhoneNumber}
@@ -273,7 +278,7 @@ const BookingForm = () => {
               </Select>
             </div>
 
-            {/* Delivery Time */}
+            {/* Delivery Time - With improved calendar icon visibility */}
             <div className="space-y-2">
               <Label htmlFor="deliveryTime" className="text-sm font-medium flex items-center gap-2">
                 <CalendarIcon className="h-4 w-4" />
