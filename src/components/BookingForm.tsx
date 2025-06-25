@@ -11,9 +11,19 @@ import PhoneInput from './PhoneInput';
 import DateTimePicker from './DateTimePicker';
 import FoodImageGallery from './FoodImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
-import { PaystackButton } from 'react-paystack';
 
 const BACKEND_URL = 'http://localhost:3000';
+
+// Define PaystackPop interface
+interface PaystackPop {
+  newTransaction: (config: any) => void;
+}
+
+declare global {
+  interface Window {
+    PaystackPop: PaystackPop;
+  }
+}
 
 const BookingForm = () => {
   const [selectedFood, setSelectedFood] = useState('');
@@ -31,6 +41,18 @@ const BookingForm = () => {
   const [additionalOptions, setAdditionalOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+
+  // Load Paystack script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v1/inline.js';
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -112,59 +134,6 @@ const BookingForm = () => {
     }
   };
 
-  const handlePaystackSuccess = async (reference: any) => {
-    try {
-      setLoading(true);
-      
-      const food = getSelectedFood();
-      if (!food) return;
-
-      const orderData = {
-        foodId: selectedFood,
-        quantity,
-        deliveryLocation,
-        phoneNumber,
-        deliveryTime: new Date(deliveryDateTime).toISOString(),
-        paymentMode,
-        additionalNotes,
-        addons: selectedAddons,
-        paymentReference: reference.reference
-      };
-
-      console.log('Submitting Paystack order:', orderData);
-
-      const response = await fetch(`${BACKEND_URL}/api/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        showSuccessAlert('Order Placed', 'Your order has been placed and payment confirmed!');
-        console.log('Order created successfully:', result);
-      } else {
-        throw new Error('Failed to create order after payment');
-      }
-      
-      // Reset form
-      resetForm();
-      
-    } catch (error) {
-      console.error('Error handling payment success:', error);
-      showSuccessAlert('Payment Confirmed', 'Payment successful! Your order has been recorded. (Demo mode)');
-      resetForm();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePaystackClose = () => {
-    showErrorAlert('Payment Cancelled', 'Your payment was cancelled. Please try again.');
-  };
-
   const validateForm = () => {
     if (!selectedFood) {
       showErrorAlert('Validation Error', 'Please select a food item.');
@@ -204,102 +173,131 @@ const BookingForm = () => {
     setSelectedAddons([]);
   };
 
+  const createOrderData = () => {
+    return {
+      foodId: selectedFood,
+      quantity,
+      deliveryLocation,
+      phoneNumber,
+      deliveryTime: new Date(deliveryDateTime).toISOString(),
+      paymentMode,
+      additionalNotes,
+      addons: selectedAddons,
+    };
+  };
+
+  const handleCashOrder = async () => {
+    try {
+      setLoading(true);
+      const orderData = createOrderData();
+
+      console.log('Submitting cash order:', orderData);
+
+      const response = await fetch(`${BACKEND_URL}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showSuccessAlert('Order Placed', 'Your cash order has been placed successfully!');
+        console.log('Cash order created successfully:', result);
+        resetForm();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create order');
+      }
+      
+    } catch (error) {
+      console.error('Error creating cash order:', error);
+      // Show success for demo purposes when backend is not available
+      showSuccessAlert('Order Placed', 'Your cash order has been placed successfully! (Demo mode)');
+      resetForm();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaystackPayment = () => {
+    if (!window.PaystackPop) {
+      showErrorAlert('Payment Error', 'Paystack is not loaded. Please refresh and try again.');
+      return;
+    }
+
+    const orderData = createOrderData();
+    const totalAmount = calculateTotal();
+
+    console.log('Initiating Paystack payment:', { orderData, totalAmount });
+
+    const paystackConfig = {
+      key: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
+      email: 'customer@meatdoctorucc.com',
+      amount: Math.round(totalAmount * 100), // Amount in pesewas
+      currency: 'GHS',
+      reference: `MD${Date.now()}`,
+      metadata: {
+        orderData: JSON.stringify(orderData),
+        custom_fields: []
+      },
+      callback: async (response: any) => {
+        console.log('Paystack payment successful:', response);
+        try {
+          setLoading(true);
+          
+          // Verify payment with backend
+          const verifyResponse = await fetch(`${BACKEND_URL}/api/payment/verify-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              reference: response.reference,
+              orderId: null
+            }),
+          });
+
+          if (verifyResponse.ok) {
+            const result = await verifyResponse.json();
+            showSuccessAlert('Payment Successful', 'Your order has been placed and payment confirmed!');
+            console.log('Payment verified successfully:', result);
+            resetForm();
+          } else {
+            throw new Error('Payment verification failed');
+          }
+        } catch (error) {
+          console.error('Error verifying payment:', error);
+          showSuccessAlert('Payment Confirmed', 'Payment successful! Your order has been recorded. (Demo mode)');
+          resetForm();
+        } finally {
+          setLoading(false);
+        }
+      },
+      onClose: () => {
+        console.log('Paystack payment cancelled');
+        showErrorAlert('Payment Cancelled', 'Your payment was cancelled. Please try again.');
+      }
+    };
+
+    window.PaystackPop.newTransaction(paystackConfig);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
 
-    const food = getSelectedFood();
-    if (!food) return;
+    console.log('Form submitted with payment mode:', paymentMode);
 
-    // For cash payment, create order directly
-    if (paymentMode === 'Cash') {
-      try {
-        setLoading(true);
-        
-        const orderData = {
-          foodId: selectedFood,
-          quantity,
-          deliveryLocation,
-          phoneNumber,
-          deliveryTime: new Date(deliveryDateTime).toISOString(),
-          paymentMode,
-          additionalNotes,
-          addons: selectedAddons,
-        };
-
-        console.log('Submitting cash order:', orderData);
-
-        const response = await fetch(`${BACKEND_URL}/api/orders`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(orderData),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          showSuccessAlert('Order Placed', 'Your cash order has been placed successfully!');
-          console.log('Cash order created successfully:', result);
-          resetForm();
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to create order');
-        }
-        
-      } catch (error) {
-        console.error('Error creating cash order:', error);
-        // Show success for demo purposes when backend is not available
-        showSuccessAlert('Order Placed', 'Your cash order has been placed successfully! (Demo mode)');
-        resetForm();
-      } finally {
-        setLoading(false);
-      }
+    if (paymentMode === 'Mobile Money') {
+      handlePaystackPayment();
+    } else if (paymentMode === 'Cash') {
+      await handleCashOrder();
     }
   };
 
-  const createPaystackConfig = () => {
-    const food = getSelectedFood();
-    if (!food || !deliveryDateTime) return null;
-
-    try {
-      const deliveryDate = new Date(deliveryDateTime);
-
-      // Validate that the date is valid
-      if (isNaN(deliveryDate.getTime())) {
-        console.error('Invalid delivery date/time');
-        return null;
-      }
-
-      const orderData = {
-        foodId: selectedFood,
-        quantity,
-        deliveryLocation,
-        phoneNumber,
-        deliveryTime: deliveryDate.toISOString(),
-        paymentMode,
-        additionalNotes,
-        addons: selectedAddons,
-      };
-
-      return {
-        reference: new Date().getTime().toString(),
-        email: 'customer@meatdoctorucc.com',
-        amount: Math.round(calculateTotal() * 100),
-        publicKey: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
-        metadata: {
-          orderData: JSON.stringify(orderData),
-          custom_fields: []
-        }
-      };
-    } catch (error) {
-      console.error('Error creating Paystack config:', error);
-      return null;
-    }
-  };
-
-  const paystackConfig = createPaystackConfig();
   const selectedFoodData = getSelectedFood();
 
   return (
@@ -485,24 +483,17 @@ const BookingForm = () => {
 
             {/* Submit Button */}
             <div className="pt-4">
-              {paymentMode === 'Mobile Money' && paystackConfig && isFormValid() ? (
-                <PaystackButton
-                  {...paystackConfig}
-                  text={`Pay GHS ${calculateTotal().toFixed(2)} with Mobile Money`}
-                  onSuccess={handlePaystackSuccess}
-                  onClose={handlePaystackClose}
-                  className="w-full bg-food-primary hover:bg-food-primary/90 text-white py-3 px-4 rounded-md font-medium transition-colors disabled:opacity-50"
-                  disabled={loading}
-                />
-              ) : (
-                <Button
-                  type="submit"
-                  className="w-full bg-food-primary hover:bg-food-primary/90"
-                  disabled={loading || !isFormValid()}
-                >
-                  {loading ? 'Processing...' : `Place Order - GHS ${calculateTotal().toFixed(2)}`}
-                </Button>
-              )}
+              <Button
+                type="submit"
+                className="w-full bg-food-primary hover:bg-food-primary/90"
+                disabled={loading || !isFormValid()}
+              >
+                {loading ? 'Processing...' : 
+                  paymentMode === 'Mobile Money' 
+                    ? `Pay GHS ${calculateTotal().toFixed(2)} with Mobile Money`
+                    : `Place Order - GHS ${calculateTotal().toFixed(2)}`
+                }
+              </Button>
             </div>
           </form>
         </CardContent>
