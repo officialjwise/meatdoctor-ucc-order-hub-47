@@ -228,7 +228,8 @@ const BookingForm = () => {
       amount: Math.round(calculateTotal() * 100),
       publicKey: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
       metadata: {
-        orderData: JSON.stringify(orderData)
+        orderData: JSON.stringify(orderData),
+        custom_fields: []
       }
     };
   };
