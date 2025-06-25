@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
@@ -49,6 +49,13 @@ const FoodImageGallery: React.FC<FoodImageGalleryProps> = ({
         className="sm:max-w-4xl p-0 overflow-hidden bg-black/95 border-gray-700"
         onKeyDown={handleKeyDown}
       >
+        <DialogTitle className="sr-only">
+          {foodName} Image Gallery
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Browse through {images.length} image{images.length > 1 ? 's' : ''} of {foodName}. Use arrow keys or navigation buttons to view different images.
+        </DialogDescription>
+        
         <div className="relative w-full h-full flex items-center justify-center min-h-[80vh]">
           <Button
             variant="ghost"
