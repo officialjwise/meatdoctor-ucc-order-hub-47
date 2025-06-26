@@ -13,7 +13,7 @@ import FoodImageGallery from './FoodImageGallery';
 import OrderDetailsModal from './OrderDetailsModal';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 // Load Paystack script
 const loadPaystackScript = () => {

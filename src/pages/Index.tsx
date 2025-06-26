@@ -22,7 +22,7 @@ const Index = () => {
   useEffect(() => {
     const fetchPublicSettings = async () => {
       try {
-        const response = await fetch('/api/settings/public/background-image', {
+        const response = await fetch('https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com/api/settings/public/background-image', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

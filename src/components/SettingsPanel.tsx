@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +9,7 @@ import { X, Plus } from 'lucide-react';
 import Sweetalert2 from 'sweetalert2';
 import { SiteSettings } from '@/lib/types';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 const SettingsPanel = () => {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({

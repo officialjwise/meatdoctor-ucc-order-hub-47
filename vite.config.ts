@@ -32,9 +32,9 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         rewrite: (path: string) => path.replace(/^\/api/, '/api'), 
       },
     },

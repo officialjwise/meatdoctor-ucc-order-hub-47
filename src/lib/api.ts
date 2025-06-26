@@ -3,8 +3,8 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' 
-    ? 'https://your-backend-url.com/api' // Replace with your actual backend URL
-    : '/api', // Relative URL for local development with Vite proxy
+    ? 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com/api'
+    : 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
