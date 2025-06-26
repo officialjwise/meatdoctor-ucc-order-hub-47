@@ -1,5 +1,4 @@
 const { supabase } = require('../config/supabase');
-const { sendSMS } = require('../utils/sendSMS');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 
@@ -84,39 +83,7 @@ const createOrder = async (req, res, next) => {
       throw new Error(`Failed to create order: ${orderError.message}`);
     }
 
-    const deliveryDate = new Date(deliveryTime).toLocaleString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-
-    // Send SMS notifications immediately after order creation
-    try {
-      // SMS to the customer
-      const customerSmsContent = `Order Confirmed!\nYour order has been successfully placed.\n\nOrder ID: ${orderId}\nSave this ID to track your order status.\n\nOrder Details:\nFood: ${food.name}\nQuantity: ${quantity}\n${addons && addons.length > 0 ? `Addons: ${addons.join(', ')}\n` : ''}${drink ? `Drink: ${drink}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${paymentMode}\nDelivery Location: ${deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Pending`;
-
-      await sendSMS({
-        to: phoneNumber,
-        content: customerSmsContent,
-      });
-
-      // SMS to the admin
-      const adminPhoneNumber = '+233543482189';
-      const adminSmsContent = `New Order Received!\n\nOrder ID: ${orderId}\nCustomer Phone: ${phoneNumber}\nFood: ${food.name}\nQuantity: ${quantity}\n${addons && addons.length > 0 ? `Addons: ${addons.join(', ')}\n` : ''}${drink ? `Drink: ${drink}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${paymentMode}\nDelivery Location: ${deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Pending`;
-
-      await sendSMS({
-        to: adminPhoneNumber,
-        content: adminSmsContent,
-      });
-
-      logger.info(`SMS notifications sent successfully for order ${orderId}`);
-    } catch (smsError) {
-      logger.error('SMS sending failed:', smsError.message);
-      // Don't throw error - order creation should succeed even if SMS fails
-    }
+    logger.info(`Order ${orderId} created successfully`);
 
     res.status(201).json({ ...order, totalPrice, foodName: food.name });
   } catch (err) {
@@ -158,19 +125,6 @@ const updateOrder = async (req, res, next) => {
     if (error || !data) {
       logger.error('Order update error:', error?.message);
       throw new Error('Failed to update order');
-    }
-
-    if (currentOrder.order_status !== orderStatus) {
-      try {
-        const smsContent = `Order Update!\nYour order ${currentOrder.order_id} status has been updated to ${orderStatus}.`;
-        await sendSMS({
-          to: currentOrder.phone_number,
-          content: smsContent,
-        });
-        logger.info(`Status update SMS sent for order ${currentOrder.order_id}`);
-      } catch (smsError) {
-        logger.error('SMS sending failed for status update:', smsError.message);
-      }
     }
 
     // Fetch addon details for total price calculation

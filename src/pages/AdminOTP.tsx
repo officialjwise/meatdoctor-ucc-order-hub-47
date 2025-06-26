@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const BACKEND_URL = 'http://localhost:3000';
 
@@ -45,14 +46,16 @@ const AdminOTP = () => {
     
     return () => clearInterval(timer);
   }, [navigate]);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!otp.trim()) {
-      toast.error('Please enter the OTP');
-      return;
+
+  // Auto-verify when OTP is complete (6 digits)
+  useEffect(() => {
+    if (otp.length === 6) {
+      handleVerifyOTP(otp);
     }
+  }, [otp]);
+  
+  const handleVerifyOTP = async (otpValue: string) => {
+    if (loading) return;
     
     setLoading(true);
     
@@ -62,7 +65,7 @@ const AdminOTP = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password, otp }),
+        body: JSON.stringify({ email, password, otp: otpValue }),
       });
 
       if (!response.ok) {
@@ -88,6 +91,7 @@ const AdminOTP = () => {
     } catch (error) {
       console.error('Error verifying OTP:', error);
       toast.error(error.message || 'Invalid OTP. Please try again or resend OTP.');
+      setOtp(''); // Clear OTP on error
     } finally {
       setLoading(false);
     }
@@ -147,52 +151,56 @@ const AdminOTP = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Verify OTP</CardTitle>
-          <CardDescription>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-xl border-0 bg-white/70 backdrop-blur-sm">
+        <CardHeader className="space-y-1 text-center pb-8">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Verify OTP
+          </CardTitle>
+          <CardDescription className="text-gray-600">
             Enter the 6-digit code sent to {email}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="otp">OTP Code</Label>
-              <Input
-                id="otp"
-                placeholder="Enter 6-digit OTP"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <Label htmlFor="otp" className="text-gray-700 font-medium text-center block">OTP Code</Label>
+            <div className="flex justify-center">
+              <InputOTP
                 maxLength={6}
-                required
-                inputMode="numeric"
-                aria-label="OTP input"
-              />
+                value={otp}
+                onChange={(value) => setOtp(value)}
+                disabled={loading}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
             </div>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={loading}
-              aria-label="Verify OTP"
-            >
-              {loading ? 'Verifying...' : 'Verify'}
-            </Button>
-          </form>
+            {loading && (
+              <p className="text-center text-sm text-gray-600">
+                Verifying OTP...
+              </p>
+            )}
+          </div>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2 text-center">
+        <CardFooter className="flex flex-col space-y-4 text-center pt-6">
           <Button
             variant="link"
             disabled={!canResend || loading}
             onClick={handleResendOTP}
-            className="text-sm"
+            className="text-sm text-blue-600 hover:text-purple-600"
           >
             {canResend ? 'Resend OTP' : `Resend OTP in ${countdown}s`}
           </Button>
           <Button
             variant="ghost"
             onClick={() => navigate('/admin')}
-            className="text-sm"
+            className="text-sm text-gray-600 hover:text-gray-800"
           >
             Back to Login
           </Button>

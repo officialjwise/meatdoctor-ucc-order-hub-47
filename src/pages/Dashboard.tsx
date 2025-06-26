@@ -70,9 +70,17 @@ const Dashboard = ({ onDashboardFilter }) => {
   };
 
   const handleTodayOrdersClick = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().slice(0, 10);
     if (onDashboardFilter) {
       onDashboardFilter(null, today);
+    } else {
+      navigate('/admin/dashboard/orders');
+    }
+  };
+
+  const handleTotalOrdersClick = () => {
+    if (onDashboardFilter) {
+      onDashboardFilter(null, null); // Show all orders with no filters
     } else {
       navigate('/admin/dashboard/orders');
     }
@@ -131,7 +139,7 @@ const Dashboard = ({ onDashboardFilter }) => {
           value={stats?.totalOrders || 0}
           icon={ShoppingBag}
           description="All time orders"
-          onClick={() => navigate('/admin/dashboard/orders')}
+          onClick={handleTotalOrdersClick}
         />
         <StatCard
           title="Total Revenue"

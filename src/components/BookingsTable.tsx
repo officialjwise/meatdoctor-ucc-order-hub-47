@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Table, 
@@ -26,7 +27,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { BellRing, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { BellRing, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 
 const BACKEND_URL = 'http://localhost:3000';
@@ -268,7 +270,10 @@ const BookingsTable = ({ bookings, onBookingsUpdate, initialStatus, initialDate 
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
-                  Loading...
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Loading orders...</span>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : bookings.length > 0 ? (

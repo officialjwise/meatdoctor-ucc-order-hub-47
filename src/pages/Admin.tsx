@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -80,18 +81,20 @@ const Admin = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
-          <CardDescription>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-xl border-0 bg-white/70 backdrop-blur-sm">
+        <CardHeader className="space-y-1 text-center pb-8">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Admin Login
+          </CardTitle>
+          <CardDescription className="text-gray-600">
             Enter your email and password to receive an OTP
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+        <CardContent className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-3">
+              <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
               <Input
                 id="email"
                 placeholder="admin@meatdoctorucc.com"
@@ -99,10 +102,11 @@ const Admin = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-12 px-4 rounded-xl border-gray-200 shadow-sm focus:shadow-md transition-shadow bg-white/50"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-3">
+              <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
               <Input
                 id="password"
                 placeholder="Enter your password"
@@ -110,11 +114,12 @@ const Admin = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="h-12 px-4 rounded-xl border-gray-200 shadow-sm focus:shadow-md transition-shadow bg-white/50"
               />
             </div>
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200" 
               disabled={loading}
               aria-label="Send OTP"
             >
@@ -122,9 +127,9 @@ const Admin = () => {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-center text-sm text-gray-500">
+        <CardFooter className="text-center text-sm text-gray-500 pt-6">
           <p className="w-full">
-            Back to <a href="/" className="text-food-primary hover:underline">Booking Page</a>
+            Back to <a href="/" className="text-blue-600 hover:text-purple-600 hover:underline transition-colors">Booking Page</a>
           </p>
         </CardFooter>
       </Card>
