@@ -39,6 +39,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint for OpenShift
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 // Routes
 app.use('/api', settingsRoutes);
 app.use('/api/auth', authRoutes);
@@ -72,9 +77,12 @@ app.get('/api/test-supabase', async (req, res) => {
 // Error Handling
 app.use(errorMiddleware);
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
+// OpenShift uses PORT environment variable, default to 8080 for OpenShift compatibility
+const PORT = process.env.PORT || 8080;
+const HOST = process.env.HOST || '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
+  logger.info(`Server running on ${HOST}:${PORT}`);
 });
 
 module.exports = app;
