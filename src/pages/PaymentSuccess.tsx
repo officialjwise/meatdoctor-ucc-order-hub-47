@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +47,7 @@ const PaymentSuccess = () => {
         setOrder(orderData);
         setLoading(false);
         
-        // Show SMS loading modal after payment is verified and order data is received
+        // Show SMS loading modal immediately after order data is set
         console.log('Showing SMS loading modal...');
         setSmsLoading(true);
         
@@ -54,7 +55,7 @@ const PaymentSuccess = () => {
         setTimeout(() => {
           console.log('Hiding SMS loading modal');
           setSmsLoading(false);
-        }, 3000);
+        }, 5000);
         
       } catch (err) {
         console.error('Payment verification error:', err);
@@ -66,6 +67,11 @@ const PaymentSuccess = () => {
 
     verifyPayment();
   }, [searchParams]);
+
+  // Debug log to check smsLoading state
+  useEffect(() => {
+    console.log('SMS Loading state changed:', smsLoading);
+  }, [smsLoading]);
 
   if (loading) {
     return (
@@ -102,6 +108,13 @@ const PaymentSuccess = () => {
 
   return (
     <>
+      {/* Debug: Show SMS loading state */}
+      {smsLoading && (
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded z-50">
+          SMS Loading: {smsLoading ? 'TRUE' : 'FALSE'}
+        </div>
+      )}
+      
       <SmsLoadingModal 
         isOpen={smsLoading} 
         message="Sending SMS confirmation..."
