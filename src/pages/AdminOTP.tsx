@@ -69,6 +69,19 @@ const AdminOTP = () => {
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>, index: number) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('Text').trim();
+    
+    if (pastedData.length === 6 && /^\d+$/.test(pastedData)) {
+      const otpArray = pastedData.split('');
+      setOtpDigits(otpArray);
+      // Focus the last input
+      const lastInput = document.getElementById('otp-5');
+      lastInput?.focus();
+    }
+  };
+
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
       const prevInput = document.getElementById(`otp-${index - 1}`);
@@ -199,6 +212,7 @@ const AdminOTP = () => {
                   value={digit}
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
+                  onPaste={(e) => handlePaste(e, index)}
                   disabled={loading}
                   className="w-12 h-12 text-center text-lg font-bold rounded-xl border-gray-600 bg-white/10 text-white placeholder-gray-400 focus:border-purple-400 focus:ring-purple-400 shadow-lg"
                 />

@@ -14,7 +14,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Pencil, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 
 const BACKEND_URL = 'http://localhost:3000';
@@ -325,7 +325,7 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Button variant="ghost" size="sm">
-                              <Pencil className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="ghost" 
