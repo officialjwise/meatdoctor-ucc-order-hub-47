@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -234,8 +233,14 @@ const BookingForm = () => {
       const orderData = createOrderData();
       const totalAmount = calculateTotal();
       
+      // Use the environment variable for the public key
+      const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2';
+      
+      console.log('Using Paystack public key:', publicKey);
+      console.log('Total amount:', totalAmount);
+      
       const handler = window.PaystackPop.setup({
-        key: 'pk_test_your_public_key_here', // Replace with your Paystack public key
+        key: publicKey,
         email: 'customer@email.com', // You might want to add email field to form
         amount: totalAmount * 100, // Amount in kobo
         currency: 'GHS',
@@ -245,8 +250,8 @@ const BookingForm = () => {
         },
         callback: function(response: any) {
           console.log('Payment successful:', response);
-          // Redirect to success page
-          window.location.href = `/payment-success?reference=${response.reference}&orderId=${orderData.foodId}`;
+          // Handle successful payment - verify with backend
+          handlePaymentVerification(response.reference, orderData);
         },
         onClose: function() {
           console.log('Payment modal closed');
@@ -258,6 +263,41 @@ const BookingForm = () => {
     } catch (error) {
       console.error('Paystack payment error:', error);
       showErrorAlert('Payment Error', 'Unable to initialize payment. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentVerification = async (reference: string, orderData: any) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/payments/verify-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reference, orderId: orderData.foodId }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const food = getSelectedFood();
+        
+        const orderDetails = {
+          ...result,
+          food: food,
+          totalPrice: calculateTotal(),
+          addons: selectedAddons,
+          deliveryDateTime: new Date(deliveryDateTime).toLocaleString()
+        };
+
+        setOrderDetailsModal({ open: true, orderData: orderDetails });
+        resetForm();
+        setLoading(false);
+      } else {
+        throw new Error('Payment verification failed');
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      showErrorAlert('Payment Verification Failed', 'Payment was successful but verification failed. Please contact support.');
       setLoading(false);
     }
   };

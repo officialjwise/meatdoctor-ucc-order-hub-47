@@ -49,6 +49,6 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
     },
   },
   define: {
-    'process.env.PAYSTACK_PUBLIC_KEY': JSON.stringify(process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2'),
+    'import.meta.env.VITE_PAYSTACK_PUBLIC_KEY': JSON.stringify('pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2'),
   },
 }));
