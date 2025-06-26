@@ -28,94 +28,70 @@ objects:
           image: ${IMAGE}
           ports:
           - containerPort: 8080
-            protocol: TCP
           env:
           - name: PORT
             value: "8080"
-          - name: HOST
-            value: "0.0.0.0"
           - name: NODE_ENV
             value: "production"
-          - name: FRONTEND_URL
-            value: "https://meatdoctorucc.netlify.app"
-          # Optional environment variables - will be created from secrets if they exist
           - name: SUPABASE_URL
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: supabase-url
-                optional: true
           - name: SUPABASE_KEY
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: supabase-key
-                optional: true
           - name: SUPABASE_SERVICE_KEY
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: supabase-service-key
-                optional: true
           - name: JWT_SECRET
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: jwt-secret
-                optional: true
           - name: HUBTEL_CLIENT_ID
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: hubtel-client-id
-                optional: true
           - name: HUBTEL_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: hubtel-client-secret
-                optional: true
           - name: HUBTEL_SENDER_ID
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: hubtel-sender-id
-                optional: true
           - name: ADMIN_EMAIL
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: admin-email
-                optional: true
           - name: ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: ${NAME}-secrets
                 key: admin-password
-                optional: true
+          - name: FRONTEND_URL
+            value: "https://meatdoctorucc.netlify.app"
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+            initialDelaySeconds: 5
+            periodSeconds: 5
 - apiVersion: v1
   kind: Service
   metadata:
@@ -126,11 +102,8 @@ objects:
     ports:
     - port: 8080
       targetPort: 8080
-      protocol: TCP
-      name: http
     selector:
       app: ${NAME}
-    type: ClusterIP
 - apiVersion: route.openshift.io/v1
   kind: Route
   metadata:
@@ -142,7 +115,7 @@ objects:
       kind: Service
       name: ${NAME}
     port:
-      targetPort: http
+      targetPort: 8080
     tls:
       termination: edge
       insecureEdgeTerminationPolicy: Redirect
@@ -156,4 +129,4 @@ parameters:
   displayName: Docker Image
   description: The Docker image to deploy
   required: true
-  value: image-registry.openshift-image-registry.svc:5000/officialjwise-dev/meatdoctor-ucc-backend:latest
+  value: your-registry/meatdoctor-ucc-backend:latest

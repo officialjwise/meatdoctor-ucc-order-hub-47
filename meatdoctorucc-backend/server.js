@@ -10,6 +10,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const logger = require('./utils/logger');
+const { supabase } = require('./config/supabase');
 const locationsRoutes = require('./routes/locationsRoutes');
 const paymentMethodsRoutes = require('./routes/paymentMethodsRoutes');
 const categoriesRoutes = require('./routes/categoriesRoutes');
@@ -24,9 +25,7 @@ const app = express();
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:8080',
-    'https://meatdoctorucc.netlify.app',
-    'http://localhost:3000',
-    'http://localhost:5173'
+    'https://meatdoctorucc.netlify.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -40,38 +39,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint for OpenShift (must be first)
+// Health check endpoint for OpenShift
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    port: process.env.PORT || 8080,
-    node_env: process.env.NODE_ENV || 'development'
-  });
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.status(200).json({ 
-    message: 'MeatDoctor UCC Backend API',
-    status: 'running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Initialize Supabase connection only if environment variables are available
-let supabase = null;
-try {
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
-    const { supabase: supabaseClient } = require('./config/supabase');
-    supabase = supabaseClient;
-    logger.info('Supabase connection initialized');
-  } else {
-    logger.warn('Supabase environment variables not found, running without database');
-  }
-} catch (error) {
-  logger.error('Failed to initialize Supabase:', error.message);
-}
 
 // Routes
 app.use('/api', settingsRoutes);
@@ -87,21 +58,7 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/additional-options', additionalOptionsRoutes);
 app.use('/api/public', publicRoutes);
 
-// Test endpoint that doesn't require Supabase
-app.get('/api/test', (req, res) => {
-  res.json({ 
-    message: 'Backend is working!',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Supabase test endpoint (only if Supabase is available)
 app.get('/api/test-supabase', async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: 'Supabase not configured' });
-  }
-  
   try {
     const { data, error } = await supabase
       .from('admins')
@@ -126,8 +83,6 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
   logger.info(`Server running on ${HOST}:${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`Health check available at: http://${HOST}:${PORT}/health`);
 });
 
 module.exports = app;

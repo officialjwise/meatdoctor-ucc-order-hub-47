@@ -5,26 +5,16 @@ require('dotenv').config();
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
-let supabase = null;
-
-if (supabaseUrl && supabaseKey) {
-  try {
-    supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: false,
-      },
-    });
-    console.log('✅ Supabase client initialized successfully');
-  } catch (error) {
-    console.error('❌ Failed to initialize Supabase client:', error.message);
-  }
-} else {
-  console.warn('⚠️  Supabase configuration missing. Database features will be unavailable.');
-  console.warn('Missing:', {
-    SUPABASE_URL: !supabaseUrl,
-    SUPABASE_SERVICE_KEY: !supabaseKey
-  });
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in environment variables.');
+  process.exit(1);
 }
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: false,
+  },
+});
 
 module.exports = { supabase };
