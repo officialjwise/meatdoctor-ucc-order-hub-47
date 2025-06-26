@@ -1,4 +1,3 @@
-
 const { supabase } = require('../config/supabase');
 const { v4: uuidv4 } = require('uuid');
 const { sendSMS } = require('../utils/sendSMS');
@@ -85,7 +84,7 @@ const createOrder = async (req, res, next) => {
       throw new Error(`Failed to create order: ${orderError.message}`);
     }
 
-    // Send SMS notification for new order
+    // Send SMS notification for new order (only for cash orders)
     if (paymentMode === 'Cash') {
       try {
         console.log('Attempting to send SMS notification for cash order...');
@@ -98,7 +97,7 @@ const createOrder = async (req, res, next) => {
           minute: '2-digit',
         });
 
-        // SMS to the customer
+        // SMS to the customer only
         const customerSmsContent = `ORDER RECEIVED! 📋
 
 Order ID: ${orderId}
@@ -117,16 +116,18 @@ Thank you for choosing MeatDoctor UCC! 🍔`;
         console.log('Sending customer SMS to:', phoneNumber);
         console.log('SMS content:', customerSmsContent);
 
+        // Send SMS without admin notifications for cash orders
         const smsResult = await sendSMS({
           to: phoneNumber,
           content: customerSmsContent,
+          skipAdminNotification: true // Skip admin SMS for cash orders
         });
 
         console.log('Customer SMS sent successfully:', smsResult);
-        logger.info('SMS notifications sent successfully for cash order');
+        logger.info('SMS notification sent successfully for cash order');
       } catch (smsError) {
-        console.error('Failed to send SMS notifications:', smsError);
-        logger.error('Failed to send SMS notifications:', smsError);
+        console.error('Failed to send SMS notification:', smsError);
+        logger.error('Failed to send SMS notification:', smsError);
         // Continue with the response even if SMS fails
       }
     }
@@ -175,9 +176,9 @@ const updateOrder = async (req, res, next) => {
       throw new Error('Failed to update order');
     }
 
-    // Send SMS notification for status update
+    // Send SMS notification to customer only for status update
     try {
-      console.log('Attempting to send SMS notification for status update...');
+      console.log('Attempting to send SMS notification to customer for status update...');
       
       const deliveryDate = new Date(data.delivery_time).toLocaleString('en-GB', {
         day: '2-digit',
@@ -223,16 +224,18 @@ Track your order: meatdoctorucc.com/track-order/${data.order_id}
 
 Thank you for choosing MeatDoctor UCC! 🍔`;
 
-      console.log('Sending status update SMS to:', data.phone_number);
+      console.log('Sending status update SMS to customer:', data.phone_number);
       console.log('SMS content:', customerSmsContent);
 
+      // Send SMS to customer only - no admin notifications for status updates
       const smsResult = await sendSMS({
         to: data.phone_number,
         content: customerSmsContent,
+        skipAdminNotification: true // Skip admin SMS for status updates
       });
 
-      console.log('Status update SMS sent successfully:', smsResult);
-      logger.info('SMS notification sent for status update');
+      console.log('Customer status update SMS sent successfully:', smsResult);
+      logger.info('SMS notification sent to customer for status update');
     } catch (smsError) {
       console.error('Failed to send SMS notification for status update:', smsError);
       logger.error('Failed to send SMS notification for status update:', smsError);

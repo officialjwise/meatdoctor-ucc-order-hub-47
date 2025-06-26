@@ -34,7 +34,7 @@ const getAdminPhoneNumbers = async () => {
   }
 };
 
-const sendSMS = async ({ from, to, content }) => {
+const sendSMS = async ({ from, to, content, skipAdminNotification = false }) => {
   try {
     // Ensure phone number is in the correct format
     let formattedPhone = to;
@@ -74,47 +74,51 @@ const sendSMS = async ({ from, to, content }) => {
     console.log('SMS sent successfully:', response.data);
     logger.info('SMS sent successfully:', response.data);
 
-    // Get admin numbers from database and send to them
-    const adminNumbers = await getAdminPhoneNumbers();
-    console.log('Admin numbers retrieved:', adminNumbers);
-    
-    for (const adminNumber of adminNumbers) {
-      try {
-        // Format admin number properly
-        let formattedAdminPhone = adminNumber;
-        
-        // Remove any spaces, dashes, or parentheses
-        formattedAdminPhone = formattedAdminPhone.replace(/[\s\-\(\)]/g, '');
-        
-        // Handle different phone number formats
-        if (formattedAdminPhone.startsWith('0')) {
-          formattedAdminPhone = '+233' + formattedAdminPhone.substring(1);
-        } else if (formattedAdminPhone.startsWith('233')) {
-          formattedAdminPhone = '+' + formattedAdminPhone;
-        } else if (!formattedAdminPhone.startsWith('+233')) {
-          formattedAdminPhone = '+233' + formattedAdminPhone;
+    // Only send to admin numbers if not skipped (for payment confirmations only)
+    if (!skipAdminNotification) {
+      const adminNumbers = await getAdminPhoneNumbers();
+      console.log('Admin numbers retrieved:', adminNumbers);
+      
+      for (const adminNumber of adminNumbers) {
+        try {
+          // Format admin number properly
+          let formattedAdminPhone = adminNumber;
+          
+          // Remove any spaces, dashes, or parentheses
+          formattedAdminPhone = formattedAdminPhone.replace(/[\s\-\(\)]/g, '');
+          
+          // Handle different phone number formats
+          if (formattedAdminPhone.startsWith('0')) {
+            formattedAdminPhone = '+233' + formattedAdminPhone.substring(1);
+          } else if (formattedAdminPhone.startsWith('233')) {
+            formattedAdminPhone = '+' + formattedAdminPhone;
+          } else if (!formattedAdminPhone.startsWith('+233')) {
+            formattedAdminPhone = '+233' + formattedAdminPhone;
+          }
+
+          // Validate admin phone number format
+          if (!/^\+233\d{9}$/.test(formattedAdminPhone)) {
+            console.warn(`Invalid admin phone number format: ${adminNumber}`);
+            continue;
+          }
+
+          const adminSmsData = {
+            from: from || HUBTEL_SENDER_ID,
+            to: formattedAdminPhone,
+            content: `Admin Notification: ${content}`,
+          };
+
+          const adminResponse = await hubtelClient.post('', adminSmsData);
+          console.log(`Admin SMS sent to ${formattedAdminPhone}:`, adminResponse.data);
+          logger.info(`Admin SMS sent to ${formattedAdminPhone}:`, adminResponse.data);
+        } catch (adminError) {
+          console.error(`Failed to send admin SMS to ${adminNumber}:`, adminError.message);
+          logger.error(`Failed to send admin SMS to ${adminNumber}:`, adminError);
+          // Continue even if admin SMS fails
         }
-
-        // Validate admin phone number format
-        if (!/^\+233\d{9}$/.test(formattedAdminPhone)) {
-          console.warn(`Invalid admin phone number format: ${adminNumber}`);
-          continue;
-        }
-
-        const adminSmsData = {
-          from: from || HUBTEL_SENDER_ID,
-          to: formattedAdminPhone,
-          content: `Admin Notification: ${content}`,
-        };
-
-        const adminResponse = await hubtelClient.post('', adminSmsData);
-        console.log(`Admin SMS sent to ${formattedAdminPhone}:`, adminResponse.data);
-        logger.info(`Admin SMS sent to ${formattedAdminPhone}:`, adminResponse.data);
-      } catch (adminError) {
-        console.error(`Failed to send admin SMS to ${adminNumber}:`, adminError.message);
-        logger.error(`Failed to send admin SMS to ${adminNumber}:`, adminError);
-        // Continue even if admin SMS fails
       }
+    } else {
+      console.log('Skipping admin notifications as requested');
     }
 
     return response.data;

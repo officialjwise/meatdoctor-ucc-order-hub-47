@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +27,8 @@ const PaymentSuccess = () => {
       }
 
       try {
-        // Show SMS loading modal immediately
+        // Show SMS loading modal immediately when starting verification
+        console.log('Starting payment verification, showing SMS loading...');
         setSmsLoading(true);
         
         const response = await fetch(`${BACKEND_URL}/api/payment/verify-paystack`, {
@@ -44,12 +44,14 @@ const PaymentSuccess = () => {
         }
 
         const orderData = await response.json();
+        console.log('Payment verified, order data received:', orderData);
         setOrder(orderData);
         
-        // Add a small delay to ensure SMS processing completes
+        // Keep SMS loading modal visible for a bit longer to ensure SMS processing completes
         setTimeout(() => {
+          console.log('Hiding SMS loading modal');
           setSmsLoading(false);
-        }, 3000);
+        }, 4000); // Increased to 4 seconds to ensure SMS is sent
         
       } catch (err) {
         console.error('Payment verification error:', err);
