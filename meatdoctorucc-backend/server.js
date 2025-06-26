@@ -41,7 +41,27 @@ app.use((req, res, next) => {
 
 // Health check endpoint for OpenShift
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Readiness probe endpoint
+app.get('/ready', async (req, res) => {
+  try {
+    // Test database connection
+    const { data, error } = await supabase.from('admins').select('count').limit(1);
+    if (error) {
+      logger.error('Database connection failed:', error);
+      return res.status(503).json({ status: 'not ready', error: 'Database connection failed' });
+    }
+    res.status(200).json({ status: 'ready', timestamp: new Date().toISOString() });
+  } catch (err) {
+    logger.error('Readiness check failed:', err);
+    res.status(503).json({ status: 'not ready', error: err.message });
+  }
 });
 
 // Routes
@@ -83,6 +103,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
   logger.info(`Server running on ${HOST}:${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 module.exports = app;

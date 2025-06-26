@@ -2,10 +2,10 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-// Hubtel credentials
-const HUBTEL_CLIENT_ID = 'uqxxbxto';
-const HUBTEL_CLIENT_SECRET = 'ducdxtfy';
-const HUBTEL_SENDER_ID = 'MeatDoctor';
+// Hubtel credentials from environment variables
+const HUBTEL_CLIENT_ID = process.env.HUBTEL_CLIENT_ID || 'uqxxbxto';
+const HUBTEL_CLIENT_SECRET = process.env.HUBTEL_CLIENT_SECRET || 'ducdxtfy';
+const HUBTEL_SENDER_ID = process.env.HUBTEL_SENDER_ID || 'MeatDoctor';
 const HUBTEL_BASE_URL = 'https://smsc.hubtel.com/v1/messages/send';
 
 // Create axios instance for Hubtel API
