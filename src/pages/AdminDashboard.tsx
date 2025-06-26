@@ -187,7 +187,7 @@ const AdminDashboard = () => {
   );
   
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       <div className="flex flex-col md:flex-row">
         {/* Sidebar */}
         <AdminNavbar 
@@ -198,21 +198,23 @@ const AdminDashboard = () => {
         {/* Main Content */}
         <main className="flex-1">
           {isMobile && (
-            <div className="h-16 bg-background"> {/* Spacer for mobile view */}
+            <div className="h-16 bg-gray-50 dark:bg-background"> {/* Spacer for mobile view */}
               {/* Navbar is rendered above the content in mobile view */}
             </div>
           )}
           
           <div className="p-4 md:p-8">
             <div className="mb-6 flex justify-between items-center">
-              <h1 className="text-2xl md:text-3xl font-bold">{getCurrentPageTitle()}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+                {getCurrentPageTitle()}
+              </h1>
               <div className="flex items-center gap-4">
                 <ThemeToggle />
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={handleLogout}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200"
                 >
                   <LogOut className="h-4 w-4" />
                   <span>Logout</span>
@@ -220,26 +222,28 @@ const AdminDashboard = () => {
               </div>
             </div>
             
-            <Routes>
-              <Route path="/" element={<Dashboard onDashboardFilter={handleDashboardFilter} />} />
-              <Route path="orders" element={
-                <BookingsTable 
-                  bookings={bookings} 
-                  onBookingsUpdate={handleBookingsUpdate}
-                  initialStatus={filterStatus}
-                  initialDate={filterDate}
-                  resetFilters={shouldResetFilters}
-                />
-              } />
-              <Route path="settings" element={<SettingsPanel />} />
-              <Route path="analytics" element={<EnhancedAnalyticsPanel />} />
-              <Route path="foods" element={<FoodManagement />} />
-              <Route path="locations" element={<LocationManagement />} />
-              <Route path="payment-methods" element={<PaymentMethodManagement />} />
-              <Route path="categories" element={<CategoryManagement />} />
-              <Route path="additional-options" element={<AdditionalOptionsManagement />} />
-              <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
-            </Routes>
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+              <Routes>
+                <Route path="/" element={<Dashboard onDashboardFilter={handleDashboardFilter} />} />
+                <Route path="orders" element={
+                  <BookingsTable 
+                    bookings={bookings} 
+                    onBookingsUpdate={handleBookingsUpdate}
+                    initialStatus={filterStatus}
+                    initialDate={filterDate}
+                    resetFilters={shouldResetFilters}
+                  />
+                } />
+                <Route path="settings" element={<SettingsPanel />} />
+                <Route path="analytics" element={<EnhancedAnalyticsPanel />} />
+                <Route path="foods" element={<FoodManagement />} />
+                <Route path="locations" element={<LocationManagement />} />
+                <Route path="payment-methods" element={<PaymentMethodManagement />} />
+                <Route path="categories" element={<CategoryManagement />} />
+                <Route path="additional-options" element={<AdditionalOptionsManagement />} />
+                <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+              </Routes>
+            </div>
           </div>
         </main>
       </div>
