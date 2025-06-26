@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Table, 
@@ -26,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { BellRing } from 'lucide-react';
+import { BellRing, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from "sonner";
 
 const BACKEND_URL = 'http://localhost:3000';
@@ -38,49 +39,70 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [editedStatus, setEditedStatus] = useState("");
-  const [previousBookingsCount, setPreviousBookingsCount] = useState(0);
   const [hasNewNotification, setHasNewNotification] = useState(false);
   
-  useEffect(() => {
-    console.log('Bookings data:', bookings);
-    setPreviousBookingsCount(bookings.length);
-  }, [bookings]);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const ITEMS_PER_PAGE = 10;
 
-  useEffect(() => {
-    if (previousBookingsCount > 0 && bookings.length > previousBookingsCount) {
-      setHasNewNotification(true);
-      toast(
-        <div className="flex items-center gap-2">
-          <BellRing className="h-4 w-4" />
-          <span>New order received!</span>
-        </div>,
-        {
-          description: "You have a new order to process.",
-          action: {
-            label: "View",
-            onClick: () => {
-              setHasNewNotification(false);
-              setStatusFilter("Pending");
-            },
-          },
-        }
-      );
-    }
-    setPreviousBookingsCount(bookings.length);
-  }, [bookings.length]);
+  // Load paginated bookings
+  const loadBookings = async (page = 1, status = statusFilter, date = dateFilter) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: ITEMS_PER_PAGE.toString(),
+      });
+      
+      if (status !== "all") params.append('status', status);
+      if (date) params.append('startDate', date);
+      if (date) params.append('endDate', date);
 
-  const filteredBookings = bookings.filter(booking => {
-    if (statusFilter !== "all" && booking.order_status !== statusFilter) {
-      return false;
-    }
-    if (dateFilter) {
-      const bookingDate = new Date(booking.created_at).toISOString().split('T')[0];
-      if (bookingDate !== dateFilter) {
-        return false;
+      const response = await fetch(`${BACKEND_URL}/api/orders?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch bookings (Status: ${response.status})`);
       }
+
+      const data = await response.json();
+      
+      // Update bookings via parent component
+      if (data.orders) {
+        onBookingsUpdate(data.orders);
+        setTotalPages(data.pagination?.totalPages || 1);
+        setTotalOrders(data.pagination?.total || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast.error('Failed to load bookings. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    return true;
-  });
+  };
+
+  // Load bookings when filters or page changes
+  useEffect(() => {
+    loadBookings(currentPage, statusFilter, dateFilter);
+  }, [currentPage, statusFilter, dateFilter]);
+
+  const handleStatusFilterChange = (newStatus) => {
+    setStatusFilter(newStatus);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const handleDateFilterChange = (newDate) => {
+    setDateFilter(newDate);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
 
   const handleViewBooking = (booking) => {
     setSelectedBooking(booking);
@@ -114,8 +136,9 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
         }
       }
 
-      toast.success(`Order ${orderId} status updated to ${newStatus}`);
-      onBookingsUpdate();
+      toast.success(`Order status updated to ${newStatus}`);
+      // Reload current page
+      loadBookings(currentPage, statusFilter, dateFilter);
     } catch (error) {
       console.error('Error updating order status:', error);
       toast.error(error.message || 'Failed to update order status. Please try again.');
@@ -128,12 +151,20 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
         return 'bg-yellow-100 text-yellow-800';
       case 'Processing':
         return 'bg-blue-100 text-blue-800';
+      case 'Confirmed':
+        return 'bg-purple-100 text-purple-800';
       case 'Delivered':
         return 'bg-green-100 text-green-800';
       case 'Cancelled':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
     }
   };
 
@@ -156,7 +187,7 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
             className={hasNewNotification ? "animate-pulse" : ""}
             onClick={() => {
               setHasNewNotification(false);
-              setStatusFilter("Pending");
+              handleStatusFilterChange("Pending");
             }}
           >
             <BellRing className="h-4 w-4" />
@@ -168,7 +199,7 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="w-full sm:w-1/2">
           <Label htmlFor="status-filter">Filter by Status</Label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
             <SelectTrigger id="status-filter">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
@@ -176,6 +207,7 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="Pending">Pending</SelectItem>
               <SelectItem value="Processing">Processing</SelectItem>
+              <SelectItem value="Confirmed">Confirmed</SelectItem>
               <SelectItem value="Delivered">Delivered</SelectItem>
               <SelectItem value="Cancelled">Cancelled</SelectItem>
             </SelectContent>
@@ -188,12 +220,12 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
               id="date-filter"
               type="date"
               value={dateFilter}
-              onChange={e => setDateFilter(e.target.value)}
+              onChange={e => handleDateFilterChange(e.target.value)}
             />
             {dateFilter && (
               <Button 
                 variant="ghost" 
-                onClick={() => setDateFilter("")}
+                onClick={() => handleDateFilterChange("")}
                 aria-label="Clear date filter"
               >
                 Clear
@@ -217,8 +249,14 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredBookings.length > 0 ? (
-              filteredBookings.map((booking) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : bookings.length > 0 ? (
+              bookings.map((booking) => (
                 <TableRow key={booking.id}>
                   <TableCell className="font-medium">{booking.order_id}</TableCell>
                   <TableCell>
@@ -269,6 +307,53 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
         </Table>
       </div>
 
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalOrders)} to {Math.min(currentPage * ITEMS_PER_PAGE, totalOrders)} of {totalOrders} results
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = i + 1;
+                return (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </Button>
+                );
+              })}
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* View Modal */}
       <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -341,6 +426,7 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -361,6 +447,7 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
                   <SelectContent>
                     <SelectItem value="Pending">Pending</SelectItem>
                     <SelectItem value="Processing">Processing</SelectItem>
+                    <SelectItem value="Confirmed">Confirmed</SelectItem>
                     <SelectItem value="Delivered">Delivered</SelectItem>
                     <SelectItem value="Cancelled">Cancelled</SelectItem>
                   </SelectContent>

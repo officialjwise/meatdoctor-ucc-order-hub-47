@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AdminNavbar from '@/components/AdminNavbar';
@@ -26,9 +26,9 @@ const AdminDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [previousBookingCount, setPreviousBookingCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState(null);
+  const [filterDate, setFilterDate] = useState(null);
   
   useEffect(() => {
     // Check if authenticated and token is not expired
@@ -52,21 +52,27 @@ const AdminDashboard = () => {
       return;
     }
 
-    // Fetch bookings immediately
-    loadBookings();
-    
-    // Set up polling for new bookings
-    const pollInterval = setInterval(() => {
+    // Only load bookings for the orders page
+    if (location.pathname.endsWith('/orders')) {
       loadBookings();
-    }, 30000); // Check every 30 seconds
-    
-    return () => clearInterval(pollInterval);
-  }, [navigate, refreshKey]);
-  
+    }
+  }, [navigate, location.pathname]);
+
   const loadBookings = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}/api/orders`, {
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '10',
+      });
+      
+      if (filterStatus) params.append('status', filterStatus);
+      if (filterDate) {
+        params.append('startDate', filterDate);
+        params.append('endDate', filterDate);
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/orders?${params}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -91,31 +97,8 @@ const AdminDashboard = () => {
         }
       }
 
-      const allBookings = await response.json();
-      
-      // Check if we have new bookings
-      if (previousBookingCount > 0 && allBookings.length > previousBookingCount) {
-        toast(
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-amber-500" />
-            <span>New order received!</span>
-          </div>,
-          {
-            description: `You have received ${allBookings.length - previousBookingCount} new order(s).`,
-            action: {
-              label: "View",
-              onClick: () => {
-                if (!location.pathname.endsWith('/orders')) {
-                  navigate('/admin/dashboard/orders');
-                }
-              }
-            }
-          }
-        );
-      }
-      
-      setBookings(allBookings);
-      setPreviousBookingCount(allBookings.length);
+      const data = await response.json();
+      setBookings(data.orders || []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast.error(error.message || 'Failed to load bookings. Please try again.');
@@ -124,9 +107,20 @@ const AdminDashboard = () => {
     }
   };
   
-  const handleBookingsUpdate = () => {
-    setRefreshKey(prev => prev + 1);
-  };
+  const handleBookingsUpdate = useCallback((updatedBookings) => {
+    if (updatedBookings) {
+      setBookings(updatedBookings);
+    } else {
+      loadBookings();
+    }
+  }, []);
+
+  // Handle filter changes from dashboard cards
+  const handleDashboardFilter = useCallback((status, date) => {
+    setFilterStatus(status);
+    setFilterDate(date);
+    navigate('/admin/dashboard/orders');
+  }, [navigate]);
   
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -208,12 +202,13 @@ const AdminDashboard = () => {
             </div>
             
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Dashboard onDashboardFilter={handleDashboardFilter} />} />
               <Route path="orders" element={
-                loading ? <LoadingSkeleton /> : 
                 <BookingsTable 
                   bookings={bookings} 
-                  onBookingsUpdate={handleBookingsUpdate} 
+                  onBookingsUpdate={handleBookingsUpdate}
+                  initialStatus={filterStatus}
+                  initialDate={filterDate}
                 />
               } />
               <Route path="settings" element={<SettingsPanel />} />

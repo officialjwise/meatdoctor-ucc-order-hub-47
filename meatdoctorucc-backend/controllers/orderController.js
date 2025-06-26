@@ -73,7 +73,7 @@ const createOrder = async (req, res, next) => {
           additional_notes: additionalNotes,
           addons: formattedAddons,
           order_id: orderId,
-          drink, // Added drink field
+          drink,
         },
       ])
       .select()
@@ -93,22 +93,30 @@ const createOrder = async (req, res, next) => {
       second: '2-digit',
     });
 
-    // SMS to the customer
-    const customerSmsContent = `Order Confirmed!\nYour order has been successfully placed.\n\nOrder ID: ${orderId}\nSave this ID to track your order status.\n\nOrder Details:\nFood: ${food.name}\nQuantity: ${quantity}\n${addons && addons.length > 0 ? `Addons: ${addons.join(', ')}\n` : ''}${drink ? `Drink: ${drink}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${paymentMode}\nDelivery Location: ${deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Pending`;
+    // Send SMS notifications immediately after order creation
+    try {
+      // SMS to the customer
+      const customerSmsContent = `Order Confirmed!\nYour order has been successfully placed.\n\nOrder ID: ${orderId}\nSave this ID to track your order status.\n\nOrder Details:\nFood: ${food.name}\nQuantity: ${quantity}\n${addons && addons.length > 0 ? `Addons: ${addons.join(', ')}\n` : ''}${drink ? `Drink: ${drink}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${paymentMode}\nDelivery Location: ${deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Pending`;
 
-    await sendSMS({
-      to: phoneNumber,
-      content: customerSmsContent,
-    });
+      await sendSMS({
+        to: phoneNumber,
+        content: customerSmsContent,
+      });
 
-    // SMS to the admin
-    const adminPhoneNumber = '+233543482189';
-    const adminSmsContent = `New Order Received!\n\nOrder ID: ${orderId}\nCustomer Phone: ${phoneNumber}\nFood: ${food.name}\nQuantity: ${quantity}\n${addons && addons.length > 0 ? `Addons: ${addons.join(', ')}\n` : ''}${drink ? `Drink: ${drink}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${paymentMode}\nDelivery Location: ${deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Pending`;
+      // SMS to the admin
+      const adminPhoneNumber = '+233543482189';
+      const adminSmsContent = `New Order Received!\n\nOrder ID: ${orderId}\nCustomer Phone: ${phoneNumber}\nFood: ${food.name}\nQuantity: ${quantity}\n${addons && addons.length > 0 ? `Addons: ${addons.join(', ')}\n` : ''}${drink ? `Drink: ${drink}\n` : ''}Total Price: GHS ${totalPrice.toFixed(2)}\nPayment: ${paymentMode}\nDelivery Location: ${deliveryLocation}\nDelivery Time: ${deliveryDate}\nStatus: Pending`;
 
-    await sendSMS({
-      to: adminPhoneNumber,
-      content: adminSmsContent,
-    });
+      await sendSMS({
+        to: adminPhoneNumber,
+        content: adminSmsContent,
+      });
+
+      logger.info(`SMS notifications sent successfully for order ${orderId}`);
+    } catch (smsError) {
+      logger.error('SMS sending failed:', smsError.message);
+      // Don't throw error - order creation should succeed even if SMS fails
+    }
 
     res.status(201).json({ ...order, totalPrice, foodName: food.name });
   } catch (err) {
@@ -153,11 +161,16 @@ const updateOrder = async (req, res, next) => {
     }
 
     if (currentOrder.order_status !== orderStatus) {
-      const smsContent = `Order Update!\nYour order ${currentOrder.order_id} status has been updated to ${orderStatus}.`;
-      await sendSMS({
-        to: currentOrder.phone_number,
-        content: smsContent,
-      });
+      try {
+        const smsContent = `Order Update!\nYour order ${currentOrder.order_id} status has been updated to ${orderStatus}.`;
+        await sendSMS({
+          to: currentOrder.phone_number,
+          content: smsContent,
+        });
+        logger.info(`Status update SMS sent for order ${currentOrder.order_id}`);
+      } catch (smsError) {
+        logger.error('SMS sending failed for status update:', smsError.message);
+      }
     }
 
     // Fetch addon details for total price calculation
@@ -202,10 +215,14 @@ const getOrders = async (req, res, next) => {
       throw new Error('Supabase client is not initialized');
     }
 
-    const { status, orderId, startDate, endDate } = req.query;
+    const { status, orderId, startDate, endDate, page = 1, limit = 10 } = req.query;
+    
+    // Calculate offset for pagination
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
     let query = supabase
       .from('orders')
-      .select('*, foods(id, name, price, category_id, categories!foods_category_id_fkey(name))')
+      .select('*, foods(id, name, price, category_id, categories!foods_category_id_fkey(name))', { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (status) {
@@ -222,7 +239,10 @@ const getOrders = async (req, res, next) => {
         .lte('created_at', endDate);
     }
 
-    const { data, error } = await query;
+    // Apply pagination
+    query = query.range(offset, offset + parseInt(limit) - 1);
+
+    const { data, error, count } = await query;
 
     if (error) {
       logger.error('Order fetch error:', error.message);
@@ -242,22 +262,22 @@ const getOrders = async (req, res, next) => {
 
           if (addonError) {
             logger.error('Addon fetch error in getOrders:', addonError.message);
-            throw new Error('Failed to fetch addon details');
+          } else {
+            addonDetails = addonData;
+            addonsTotal = addonData.reduce((sum, addon) => sum + addon.price, 0);
           }
-          addonDetails = addonData;
-          addonsTotal = addonData.reduce((sum, addon) => sum + addon.price, 0);
         }
 
         return {
           id: order.id,
           order_id: order.order_id,
-          food: {
+          food: order.foods ? {
             id: order.foods.id,
             name: order.foods.name,
             price: order.foods.price,
             category_id: order.foods.category_id,
             categories: order.foods.categories,
-          },
+          } : null,
           food_id: order.food_id,
           quantity: order.quantity,
           delivery_location: order.delivery_location,
@@ -266,16 +286,24 @@ const getOrders = async (req, res, next) => {
           payment_mode: order.payment_mode,
           additional_notes: order.additional_notes,
           addons: order.addons,
-          addonDetails: addonDetails, // Include full addon details
+          addonDetails: addonDetails,
           order_status: order.order_status,
           created_at: order.created_at,
           drink: order.drink,
-          totalPrice: (order.foods.price * order.quantity) + addonsTotal,
+          totalPrice: order.foods ? (order.foods.price * order.quantity) + addonsTotal : 0,
         };
       })
     );
 
-    res.status(200).json(orders);
+    res.status(200).json({
+      orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: count,
+        totalPages: Math.ceil(count / parseInt(limit)),
+      }
+    });
   } catch (err) {
     logger.error(`Error in getOrders: ${err.message}`);
     next(err);
@@ -339,22 +367,22 @@ const trackOrder = async (req, res, next) => {
 
       if (addonError) {
         logger.error('Addon fetch error in trackOrder:', addonError.message);
-        throw new Error('Failed to fetch addon details');
+      } else {
+        addonDetails = addonData;
+        addonsTotal = addonData.reduce((sum, addon) => sum + addon.price, 0);
       }
-      addonDetails = addonData;
-      addonsTotal = addonData.reduce((sum, addon) => sum + addon.price, 0);
     }
 
     const order = {
       id: data.id,
       order_id: data.order_id,
-      food: {
+      food: data.foods ? {
         id: data.foods.id,
         name: data.foods.name,
         price: data.foods.price,
         category_id: data.foods.category_id,
         categories: data.foods.categories,
-      },
+      } : null,
       food_id: data.food_id,
       quantity: data.quantity,
       delivery_location: data.delivery_location,
@@ -367,8 +395,8 @@ const trackOrder = async (req, res, next) => {
       order_status: data.order_status,
       created_at: data.created_at,
       drink: data.drink,
-      totalPrice: (data.foods.price * data.quantity) + addonsTotal,
-      foodName: data.foods.name,
+      totalPrice: data.foods ? (data.foods.price * data.quantity) + addonsTotal : 0,
+      foodName: data.foods ? data.foods.name : null,
     };
 
     res.status(200).json(order);

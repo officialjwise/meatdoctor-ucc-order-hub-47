@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +25,7 @@ interface DashboardStats {
   todayOrders: number;
 }
 
-const Dashboard = () => {
+const Dashboard = ({ onDashboardFilter }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -57,6 +58,23 @@ const Dashboard = () => {
       console.error('Error fetching dashboard stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePendingOrdersClick = () => {
+    if (onDashboardFilter) {
+      onDashboardFilter('Pending', null);
+    } else {
+      navigate('/admin/dashboard/orders');
+    }
+  };
+
+  const handleTodayOrdersClick = () => {
+    const today = new Date().toISOString().split('T')[0];
+    if (onDashboardFilter) {
+      onDashboardFilter(null, today);
+    } else {
+      navigate('/admin/dashboard/orders');
     }
   };
 
@@ -128,6 +146,7 @@ const Dashboard = () => {
           icon={TrendingUp}
           description="Orders received today"
           color="blue"
+          onClick={handleTodayOrdersClick}
         />
         <StatCard
           title="Pending Orders"
@@ -135,7 +154,7 @@ const Dashboard = () => {
           icon={Clock}
           description="Awaiting processing"
           color="yellow"
-          onClick={() => navigate('/admin/dashboard/orders')}
+          onClick={handlePendingOrdersClick}
         />
       </div>
 
