@@ -1,3 +1,4 @@
+
 export interface SiteSettings {
     site_name: string;
     site_description: string;
@@ -42,6 +43,11 @@ export interface SiteSettings {
     created_at: string;
     payment_status?: string; // Added for payment tracking
     totalPrice?: number; // Added for revenue calculations
+    // Additional properties for payment success page
+    foodName?: string;
+    amountPaid?: number;
+    paymentStatus?: string;
+    paymentReference?: string;
   }
   
   export interface DetailedOrder {

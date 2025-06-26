@@ -14,7 +14,7 @@ const SmsLoadingModal: React.FC<SmsLoadingModalProps> = ({
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
+      <DialogContent className="sm:max-w-md [&>button]:hidden">
         <div className="flex flex-col items-center justify-center p-6 space-y-4">
           <LoadingSpinner size="lg" className="text-food-primary" />
           <div className="text-center">
