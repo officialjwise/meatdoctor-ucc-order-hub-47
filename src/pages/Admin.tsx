@@ -73,7 +73,6 @@ const Admin = () => {
       localStorage.setItem('tempAdminPassword', password);
       navigate('/admin/otp');
     } catch (error) {
-      console.error('Error sending OTP:', error);
       toast.error(error.message || 'Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
@@ -81,20 +80,22 @@ const Admin = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-xl border-0 bg-white/70 backdrop-blur-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-slate-900/40 to-slate-900"></div>
+      
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/10 backdrop-blur-lg relative z-10">
         <CardHeader className="space-y-1 text-center pb-8">
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Admin Login
           </CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardDescription className="text-gray-300">
             Enter your email and password to receive an OTP
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-3">
-              <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
+              <Label htmlFor="email" className="text-gray-200 font-medium">Email</Label>
               <Input
                 id="email"
                 placeholder="admin@meatdoctorucc.com"
@@ -102,11 +103,11 @@ const Admin = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12 px-4 rounded-xl border-gray-200 shadow-sm focus:shadow-md transition-shadow bg-white/50"
+                className="h-12 px-4 rounded-xl border-gray-600 bg-white/10 text-white placeholder-gray-400 focus:border-purple-400 focus:ring-purple-400 shadow-lg"
               />
             </div>
             <div className="space-y-3">
-              <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+              <Label htmlFor="password" className="text-gray-200 font-medium">Password</Label>
               <Input
                 id="password"
                 placeholder="Enter your password"
@@ -114,12 +115,12 @@ const Admin = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-12 px-4 rounded-xl border-gray-200 shadow-sm focus:shadow-md transition-shadow bg-white/50"
+                className="h-12 px-4 rounded-xl border-gray-600 bg-white/10 text-white placeholder-gray-400 focus:border-purple-400 focus:ring-purple-400 shadow-lg"
               />
             </div>
             <Button 
               type="submit" 
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200" 
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200 border-0" 
               disabled={loading}
               aria-label="Send OTP"
             >
@@ -127,9 +128,9 @@ const Admin = () => {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-center text-sm text-gray-500 pt-6">
+        <CardFooter className="text-center text-sm text-gray-400 pt-6">
           <p className="w-full">
-            Back to <a href="/" className="text-blue-600 hover:text-purple-600 hover:underline transition-colors">Booking Page</a>
+            Back to <a href="/" className="text-purple-400 hover:text-pink-400 hover:underline transition-colors">Booking Page</a>
           </p>
         </CardFooter>
       </Card>

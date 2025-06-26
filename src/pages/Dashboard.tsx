@@ -55,7 +55,7 @@ const Dashboard = ({ onDashboardFilter }) => {
         });
       }
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      // Error handling without console.log
     } finally {
       setLoading(false);
     }

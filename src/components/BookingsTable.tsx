@@ -1,5 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Table, 
   TableBody, 
@@ -8,76 +13,62 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { BellRing, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { toast } from "sonner";
+import { toast } from 'sonner';
+import { Pencil, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import LoadingSpinner from './LoadingSpinner';
 
 const BACKEND_URL = 'http://localhost:3000';
 
 interface BookingsTableProps {
-  bookings: any[];
-  onBookingsUpdate: (updatedBookings: any) => void;
-  initialStatus?: string | null;
-  initialDate?: string | null;
+  bookings: any;
+  onBookingsUpdate: any;
+  initialStatus?: string;
+  initialDate?: string;
 }
 
-const BookingsTable = ({ bookings, onBookingsUpdate, initialStatus, initialDate }: BookingsTableProps) => {
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState(initialStatus || "all");
-  const [dateFilter, setDateFilter] = useState(initialDate || "");
-  const [editedStatus, setEditedStatus] = useState("");
-  const [hasNewNotification, setHasNewNotification] = useState(false);
-  
-  // Pagination state
+const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialStatus, initialDate }: BookingsTableProps) => {
+  const [bookings, setBookings] = useState([]);
+  const [filteredBookings, setFilteredBookings] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState(initialStatus || 'All');
+  const [dateFilter, setDateFilter] = useState(initialDate || '');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalOrders, setTotalOrders] = useState(0);
+  const [itemsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
-  const ITEMS_PER_PAGE = 10;
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  // Update filters when initial props change
   useEffect(() => {
-    if (initialStatus !== undefined) {
-      setStatusFilter(initialStatus || "all");
+    if (initialStatus) {
+      setStatusFilter(initialStatus);
     }
-    if (initialDate !== undefined) {
-      setDateFilter(initialDate || "");
+    if (initialDate) {
+      setDateFilter(initialDate);
     }
   }, [initialStatus, initialDate]);
 
-  // Load paginated bookings
-  const loadBookings = async (page = 1, status = statusFilter, date = dateFilter) => {
-    setLoading(true);
+  useEffect(() => {
+    loadBookings();
+  }, [currentPage, statusFilter, dateFilter, searchTerm]);
+
+  const loadBookings = async () => {
     try {
+      setLoading(true);
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: ITEMS_PER_PAGE.toString(),
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
       });
-      
-      if (status !== "all") params.append('status', status);
-      if (date) params.append('startDate', date);
-      if (date) params.append('endDate', date);
+
+      if (statusFilter && statusFilter !== 'All') {
+        params.append('status', statusFilter);
+      }
+      if (dateFilter) {
+        params.append('startDate', dateFilter);
+        params.append('endDate', dateFilter);
+      }
+      if (searchTerm) {
+        params.append('orderId', searchTerm);
+      }
 
       const response = await fetch(`${BACKEND_URL}/api/orders?${params}`, {
         method: 'GET',
@@ -88,52 +79,28 @@ const BookingsTable = ({ bookings, onBookingsUpdate, initialStatus, initialDate 
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch bookings (Status: ${response.status})`);
+        throw new Error('Failed to fetch bookings');
       }
 
       const data = await response.json();
+      setBookings(data.orders || []);
+      setFilteredBookings(data.orders || []);
+      setTotalPages(data.pagination?.totalPages || 1);
+      setTotalItems(data.pagination?.total || 0);
       
-      // Update bookings via parent component
-      if (data.orders) {
+      if (onBookingsUpdate) {
         onBookingsUpdate(data.orders);
-        setTotalPages(data.pagination?.totalPages || 1);
-        setTotalOrders(data.pagination?.total || 0);
       }
     } catch (error) {
-      console.error('Error fetching bookings:', error);
-      toast.error('Failed to load bookings. Please try again.');
+      toast.error('Failed to load bookings');
+      setBookings([]);
+      setFilteredBookings([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load bookings when filters or page changes
-  useEffect(() => {
-    loadBookings(currentPage, statusFilter, dateFilter);
-  }, [currentPage, statusFilter, dateFilter]);
-
-  const handleStatusFilterChange = (newStatus) => {
-    setStatusFilter(newStatus);
-    setCurrentPage(1); // Reset to first page when filter changes
-  };
-
-  const handleDateFilterChange = (newDate) => {
-    setDateFilter(newDate);
-    setCurrentPage(1); // Reset to first page when filter changes
-  };
-
-  const handleViewBooking = (booking) => {
-    setSelectedBooking(booking);
-    setViewModalOpen(true);
-  };
-
-  const handleEditBooking = (booking) => {
-    setSelectedBooking(booking);
-    setEditedStatus(booking.order_status);
-    setEditModalOpen(true);
-  };
-
-  const handleStatusChange = async (orderId, newStatus) => {
+  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
       const response = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
         method: 'PUT',
@@ -145,350 +112,272 @@ const BookingsTable = ({ bookings, onBookingsUpdate, initialStatus, initialDate 
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to update order status (Status: ${response.status})`);
-        } else {
-          throw new Error(`Failed to update order status (Status: ${response.status}) - Unexpected response format`);
-        }
+        throw new Error('Failed to update order status');
       }
 
-      toast.success(`Order status updated to ${newStatus}`);
-      // Reload current page
-      loadBookings(currentPage, statusFilter, dateFilter);
+      toast.success('Order status updated successfully');
+      loadBookings();
     } catch (error) {
-      console.error('Error updating order status:', error);
-      toast.error(error.message || 'Failed to update order status. Please try again.');
+      toast.error('Failed to update order status');
     }
   };
 
-  const getStatusBadgeClass = (status) => {
+  const handleDelete = async (orderId: string) => {
+    if (!confirm('Are you sure you want to delete this order?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete order');
+      }
+
+      toast.success('Order deleted successfully');
+      loadBookings();
+    } catch (error) {
+      toast.error('Failed to delete order');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'Pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Processing':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Confirmed':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Delivered':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'Cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const renderPaginationButtons = () => {
+    const buttons = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
+
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(
+        <Button
+          key={i}
+          variant={i === currentPage ? "default" : "outline"}
+          size="sm"
+          onClick={() => handlePageChange(i)}
+          disabled={loading}
+        >
+          {i}
+        </Button>
+      );
+    }
+
+    return buttons;
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Order Management</h2>
-        <div className="relative">
-          {hasNewNotification && (
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center"
-            >
-              !
-            </Badge>
-          )}
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className={hasNewNotification ? "animate-pulse" : ""}
-            onClick={() => {
-              setHasNewNotification(false);
-              handleStatusFilterChange("Pending");
-            }}
-          >
-            <BellRing className="h-4 w-4" />
-            <span className="sr-only">View new notifications</span>
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="w-full sm:w-1/2">
-          <Label htmlFor="status-filter">Filter by Status</Label>
-          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-            <SelectTrigger id="status-filter">
-              <SelectValue placeholder="Select status" />
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>Orders Management</span>
+          <div className="text-sm font-normal text-muted-foreground">
+            {totalItems} total orders
+          </div>
+        </CardTitle>
+        
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search by Order ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="All">All Status</SelectItem>
               <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Processing">Processing</SelectItem>
               <SelectItem value="Confirmed">Confirmed</SelectItem>
               <SelectItem value="Delivered">Delivered</SelectItem>
               <SelectItem value="Cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <div className="w-full sm:w-1/2">
-          <Label htmlFor="date-filter">Filter by Date</Label>
-          <div className="flex gap-2">
-            <Input
-              id="date-filter"
-              type="date"
-              value={dateFilter}
-              onChange={e => handleDateFilterChange(e.target.value)}
-            />
-            {dateFilter && (
-              <Button 
-                variant="ghost" 
-                onClick={() => handleDateFilterChange("")}
-                aria-label="Clear date filter"
-              >
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Food</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Loading orders...</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : bookings.length > 0 ? (
-              bookings.map((booking) => (
-                <TableRow key={booking.id}>
-                  <TableCell className="font-medium">{booking.order_id}</TableCell>
-                  <TableCell>
-                    <span>
-                      {booking.food?.name?.length > 20 
-                        ? `${booking.food.name.slice(0, 20)}...` 
-                        : booking.food?.name || 'N/A'}
-                    </span>
-                  </TableCell>
-                  <TableCell>{booking.delivery_location}</TableCell>
-                  <TableCell>{booking.phone_number}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(booking.order_status)}`}>
-                      {booking.order_status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleViewBooking(booking)}
-                        aria-label="View booking details"
-                      >
-                        View
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleEditBooking(booking)}
-                        aria-label="Edit booking"
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
-                  No bookings found matching the current filters
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalOrders)} to {Math.min(currentPage * ITEMS_PER_PAGE, totalOrders)} of {totalOrders} results
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            
-            <div className="flex items-center space-x-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = i + 1;
-                return (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </Button>
-                );
-              })}
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* View Modal */}
-      <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Booking Details</DialogTitle>
-            <DialogDescription>
-              Order ID: {selectedBooking?.order_id}
-            </DialogDescription>
-          </DialogHeader>
           
-          {selectedBooking && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="font-medium">Food:</div>
-                <div>{selectedBooking.food?.name || 'N/A'}</div>
-                
-                <div className="font-medium">Quantity:</div>
-                <div>{selectedBooking.quantity}</div>
-                
-                {selectedBooking.addonDetails && selectedBooking.addonDetails.length > 0 && (
-                  <>
-                    <div className="font-medium">Addons:</div>
-                    <div>
-                      {selectedBooking.addonDetails.map((addon, index) => (
-                        <div key={index}>
-                          {addon.name} (GHS {addon.price?.toFixed(2)})
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-                
-                {selectedBooking.drink && (
-                  <>
-                    <div className="font-medium">Drink:</div>
-                    <div>{selectedBooking.drink}</div>
-                  </>
-                )}
-                
-                <div className="font-medium">Total Price:</div>
-                <div>GHS {selectedBooking.totalPrice?.toFixed(2) || '0.00'}</div>
-                
-                <div className="font-medium">Payment Mode:</div>
-                <div>{selectedBooking.payment_mode}</div>
-                
-                <div className="font-medium">Location:</div>
-                <div>{selectedBooking.delivery_location}</div>
-                
-                <div className="font-medium">Phone:</div>
-                <div>{selectedBooking.phone_number}</div>
-                
-                <div className="font-medium">Delivery Time:</div>
-                <div>{new Date(selectedBooking.delivery_time).toLocaleString()}</div>
-                
-                <div className="font-medium">Status:</div>
-                <div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(selectedBooking.order_status)}`}>
-                    {selectedBooking.order_status}
-                  </span>
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="w-40"
+          />
+        </div>
+      </CardHeader>
+      
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <LoadingSpinner size="lg" />
+            <span className="ml-2">Loading orders...</span>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Food Item</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredBookings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        No orders found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-medium">
+                          {booking.order_id}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{booking.food?.name}</div>
+                            <div className="text-sm text-gray-500">Qty: {booking.quantity}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{booking.phone_number}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{booking.delivery_location}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={booking.order_status}
+                            onValueChange={(value) => handleStatusUpdate(booking.id, value)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <Badge className={getStatusColor(booking.order_status)}>
+                                {booking.order_status}
+                              </Badge>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Pending">Pending</SelectItem>
+                              <SelectItem value="Confirmed">Confirmed</SelectItem>
+                              <SelectItem value="Delivered">Delivered</SelectItem>
+                              <SelectItem value="Cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">
+                            GHS {booking.totalPrice?.toFixed(2) || '0.00'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {formatDate(booking.created_at)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDelete(booking.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} orders
                 </div>
                 
-                <div className="font-medium">Created At:</div>
-                <div>{new Date(selectedBooking.created_at).toLocaleString()}</div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  {renderPaginationButtons()}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages || loading}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button onClick={() => setViewModalOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Modal */}
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Booking</DialogTitle>
-            <DialogDescription>
-              Update the status for Order ID: {selectedBooking?.order_id}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedBooking && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select value={editedStatus} onValueChange={setEditedStatus}>
-                  <SelectTrigger id="status">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Processing">Processing</SelectItem>
-                    <SelectItem value="Confirmed">Confirmed</SelectItem>
-                    <SelectItem value="Delivered">Delivered</SelectItem>
-                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancel</Button>
-            <Button onClick={() => {
-              if (selectedBooking) {
-                handleStatusChange(selectedBooking.id, editedStatus);
-                setEditModalOpen(false);
-              }
-            }}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

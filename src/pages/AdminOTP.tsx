@@ -1,16 +1,16 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Input } from '@/components/ui/input';
 
 const BACKEND_URL = 'http://localhost:3000';
 
 const AdminOTP = () => {
-  const [otp, setOtp] = useState('');
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,10 +49,32 @@ const AdminOTP = () => {
 
   // Auto-verify when OTP is complete (6 digits)
   useEffect(() => {
-    if (otp.length === 6) {
+    const otp = otpDigits.join('');
+    if (otp.length === 6 && !loading) {
       handleVerifyOTP(otp);
     }
-  }, [otp]);
+  }, [otpDigits, loading]);
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) return; // Only allow single digit
+    
+    const newOtpDigits = [...otpDigits];
+    newOtpDigits[index] = value;
+    setOtpDigits(newOtpDigits);
+    
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
   
   const handleVerifyOTP = async (otpValue: string) => {
     if (loading) return;
@@ -89,9 +111,11 @@ const AdminOTP = () => {
       toast.success(data.message);
       navigate('/admin/dashboard');
     } catch (error) {
-      console.error('Error verifying OTP:', error);
       toast.error(error.message || 'Invalid OTP. Please try again or resend OTP.');
-      setOtp(''); // Clear OTP on error
+      setOtpDigits(['', '', '', '', '', '']); // Clear OTP on error
+      // Focus first input
+      const firstInput = document.getElementById('otp-0');
+      firstInput?.focus();
     } finally {
       setLoading(false);
     }
@@ -143,7 +167,6 @@ const AdminOTP = () => {
       
       return () => clearInterval(timer);
     } catch (error) {
-      console.error('Error resending OTP:', error);
       toast.error(error.message || 'Failed to resend OTP. Please try again.');
     } finally {
       setLoading(false);
@@ -151,38 +174,38 @@ const AdminOTP = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-xl border-0 bg-white/70 backdrop-blur-sm">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-slate-900/40 to-slate-900"></div>
+      
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/10 backdrop-blur-lg relative z-10">
         <CardHeader className="space-y-1 text-center pb-8">
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Verify OTP
           </CardTitle>
-          <CardDescription className="text-gray-600">
+          <CardDescription className="text-gray-300">
             Enter the 6-digit code sent to {email}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
-            <Label htmlFor="otp" className="text-gray-700 font-medium text-center block">OTP Code</Label>
-            <div className="flex justify-center">
-              <InputOTP
-                maxLength={6}
-                value={otp}
-                onChange={(value) => setOtp(value)}
-                disabled={loading}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
+            <Label htmlFor="otp" className="text-gray-200 font-medium text-center block">OTP Code</Label>
+            <div className="flex justify-center gap-2">
+              {otpDigits.map((digit, index) => (
+                <Input
+                  key={index}
+                  id={`otp-${index}`}
+                  type="text"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  disabled={loading}
+                  className="w-12 h-12 text-center text-lg font-bold rounded-xl border-gray-600 bg-white/10 text-white placeholder-gray-400 focus:border-purple-400 focus:ring-purple-400 shadow-lg"
+                />
+              ))}
             </div>
             {loading && (
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-gray-300">
                 Verifying OTP...
               </p>
             )}
@@ -193,14 +216,14 @@ const AdminOTP = () => {
             variant="link"
             disabled={!canResend || loading}
             onClick={handleResendOTP}
-            className="text-sm text-blue-600 hover:text-purple-600"
+            className="text-sm text-purple-400 hover:text-pink-400"
           >
             {canResend ? 'Resend OTP' : `Resend OTP in ${countdown}s`}
           </Button>
           <Button
             variant="ghost"
             onClick={() => navigate('/admin')}
-            className="text-sm text-gray-600 hover:text-gray-800"
+            className="text-sm text-gray-400 hover:text-gray-200"
           >
             Back to Login
           </Button>

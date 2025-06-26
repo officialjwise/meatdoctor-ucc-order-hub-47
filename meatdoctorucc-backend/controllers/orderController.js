@@ -1,3 +1,4 @@
+
 const { supabase } = require('../config/supabase');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
@@ -190,7 +191,7 @@ const getOrders = async (req, res, next) => {
     if (startDate && endDate) {
       query = query
         .gte('created_at', startDate)
-        .lte('created_at', endDate);
+        .lte('created_at', endDate + 'T23:59:59.999Z');
     }
 
     // Apply pagination
@@ -244,6 +245,7 @@ const getOrders = async (req, res, next) => {
           order_status: order.order_status,
           created_at: order.created_at,
           drink: order.drink,
+          payment_status: order.payment_status,
           totalPrice: order.foods ? (order.foods.price * order.quantity) + addonsTotal : 0,
         };
       })
@@ -349,6 +351,7 @@ const trackOrder = async (req, res, next) => {
       order_status: data.order_status,
       created_at: data.created_at,
       drink: data.drink,
+      payment_status: data.payment_status,
       totalPrice: data.foods ? (data.foods.price * data.quantity) + addonsTotal : 0,
       foodName: data.foods ? data.foods.name : null,
     };
