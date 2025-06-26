@@ -21,9 +21,12 @@ dotenv.config();
 
 const app = express();
 
-// Enable CORS for your frontend origin
+// Enable CORS for your frontend origins
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:8080',
+    'https://meatdoctorucc.netlify.app'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));

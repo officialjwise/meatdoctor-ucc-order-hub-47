@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,9 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://your-backend-url.com' // Replace with your actual backend URL
+  : 'http://localhost:3000';
 
 const AdminOTP = () => {
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);

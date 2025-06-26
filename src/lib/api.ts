@@ -2,7 +2,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api', // Relative URL for Vite proxy
+  baseURL: process.env.NODE_ENV === 'production' 
+    ? 'https://your-backend-url.com/api' // Replace with your actual backend URL
+    : '/api', // Relative URL for local development with Vite proxy
   headers: {
     'Content-Type': 'application/json',
   },
