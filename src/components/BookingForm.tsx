@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ZoomIn } from 'lucide-react';
+import { ZoomIn, Plus, Minus } from 'lucide-react';
 import PhoneInput from './PhoneInput';
 import DateTimePicker from './DateTimePicker';
 import FoodImageGallery from './FoodImageGallery';
@@ -34,6 +34,7 @@ const loadPaystackScript = () => {
 const BookingForm = () => {
   const [selectedFood, setSelectedFood] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [quantityError, setQuantityError] = useState('');
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [deliveryDateTime, setDeliveryDateTime] = useState('');
@@ -122,6 +123,24 @@ const BookingForm = () => {
     return foodTotal + addonsTotal;
   };
 
+  const handleQuantityChange = (newQuantity: number) => {
+    if (newQuantity <= 0) {
+      setQuantity(0);
+      setQuantityError('0 is not allowed');
+    } else {
+      setQuantity(newQuantity);
+      setQuantityError('');
+    }
+  };
+
+  const incrementQuantity = () => {
+    handleQuantityChange(quantity + 1);
+  };
+
+  const decrementQuantity = () => {
+    handleQuantityChange(quantity - 1);
+  };
+
   const handleAddonChange = (addonName: string, checked: boolean) => {
     if (checked) {
       setSelectedAddons([...selectedAddons, addonName]);
@@ -133,6 +152,10 @@ const BookingForm = () => {
   const validateForm = () => {
     if (!selectedFood) {
       showErrorAlert('Validation Error', 'Please select a food item.');
+      return false;
+    }
+    if (quantity <= 0) {
+      showErrorAlert('Validation Error', 'Quantity must be greater than 0.');
       return false;
     }
     if (!deliveryLocation) {
@@ -155,12 +178,13 @@ const BookingForm = () => {
   };
 
   const isFormValid = () => {
-    return selectedFood && deliveryLocation && phoneNumber && deliveryDateTime && paymentMode;
+    return selectedFood && deliveryLocation && phoneNumber && deliveryDateTime && paymentMode && quantity > 0;
   };
 
   const resetForm = () => {
     setSelectedFood('');
     setQuantity(1);
+    setQuantityError('');
     setDeliveryLocation('');
     setPhoneNumber('');
     setDeliveryDateTime('');
@@ -367,16 +391,40 @@ const BookingForm = () => {
               </div>
             )}
 
+            {/* Quantity with Plus/Minus buttons */}
             <div className="space-y-2">
               <Label htmlFor="quantity">Quantity *</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="w-full"
-              />
+              <div className="flex items-center space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={decrementQuantity}
+                  className="h-10 w-10"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 0)}
+                  className="w-20 text-center"
+                  min="1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={incrementQuantity}
+                  className="h-10 w-10"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {quantityError && (
+                <p className="text-sm text-red-500 mt-1">{quantityError}</p>
+              )}
             </div>
 
             {additionalOptions.length > 0 && (
@@ -458,7 +506,7 @@ const BookingForm = () => {
             </div>
 
             {/* Order Summary */}
-            {selectedFood && (
+            {selectedFood && quantity > 0 && (
               <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                 <h3 className="font-semibold">Order Summary</h3>
                 <div className="space-y-1 text-sm">
