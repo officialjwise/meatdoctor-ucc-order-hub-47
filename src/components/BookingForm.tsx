@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,17 +14,6 @@ import FoodImageGallery from './FoodImageGallery';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
 const BACKEND_URL = 'http://localhost:3000';
-
-// Define PaystackPop interface
-interface PaystackPop {
-  newTransaction: (config: any) => void;
-}
-
-declare global {
-  interface Window {
-    PaystackPop: PaystackPop;
-  }
-}
 
 const BookingForm = () => {
   const [selectedFood, setSelectedFood] = useState('');
@@ -41,80 +31,6 @@ const BookingForm = () => {
   const [additionalOptions, setAdditionalOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [paystackLoaded, setPaystackLoaded] = useState(false);
-
-  // Simplified and more reliable Paystack loading
-  useEffect(() => {
-    const initializePaystack = () => {
-      console.log('=== INITIALIZING PAYSTACK ===');
-      
-      // Check if Paystack is already fully loaded
-      const isPaystackReady = () => {
-        const ready = !!(window.PaystackPop && 
-                         typeof window.PaystackPop === 'object' && 
-                         typeof window.PaystackPop.newTransaction === 'function');
-        console.log('Paystack readiness check:', {
-          PaystackPop_exists: !!window.PaystackPop,
-          is_object: typeof window.PaystackPop === 'object',
-          newTransaction_exists: !!(window.PaystackPop && window.PaystackPop.newTransaction),
-          newTransaction_is_function: !!(window.PaystackPop && typeof window.PaystackPop.newTransaction === 'function'),
-          overall_ready: ready
-        });
-        return ready;
-      };
-
-      if (isPaystackReady()) {
-        console.log('Paystack already ready');
-        setPaystackLoaded(true);
-        return;
-      }
-
-      // Remove any existing Paystack scripts
-      const existingScripts = document.querySelectorAll('script[src*="paystack"]');
-      existingScripts.forEach(script => script.remove());
-
-      console.log('Loading fresh Paystack script...');
-      const script = document.createElement('script');
-      script.src = 'https://js.paystack.co/v1/inline.js';
-      script.async = true;
-
-      let checkAttempts = 0;
-      const maxAttempts = 50; // 5 seconds total
-
-      const checkPaystackLoad = () => {
-        checkAttempts++;
-        console.log(`Checking Paystack load attempt ${checkAttempts}/${maxAttempts}`);
-        
-        if (isPaystackReady()) {
-          console.log('✅ Paystack fully loaded and ready!');
-          setPaystackLoaded(true);
-          return;
-        }
-
-        if (checkAttempts < maxAttempts) {
-          setTimeout(checkPaystackLoad, 100);
-        } else {
-          console.error('❌ Paystack failed to load completely');
-          showErrorAlert('Payment Error', 'Payment system failed to load. Please refresh the page.');
-        }
-      };
-
-      script.onload = () => {
-        console.log('Paystack script onload fired');
-        // Start checking immediately after script loads
-        setTimeout(checkPaystackLoad, 50);
-      };
-
-      script.onerror = (error) => {
-        console.error('Failed to load Paystack script:', error);
-        showErrorAlert('Payment Error', 'Failed to load payment system. Please refresh and try again.');
-      };
-
-      document.head.appendChild(script);
-    };
-
-    initializePaystack();
-  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -157,8 +73,7 @@ const BookingForm = () => {
           { id: '2', name: 'UCC Hospital', is_active: true }
         ]);
         setPaymentMethods([
-          { id: '1', name: 'Cash', is_active: true },
-          { id: '2', name: 'Mobile Money', is_active: true }
+          { id: '1', name: 'Cash', is_active: true }
         ]);
         setAdditionalOptions([
           { id: '1', name: 'Extra Sauce', price: 2 },
@@ -248,12 +163,12 @@ const BookingForm = () => {
     };
   };
 
-  const handleCashOrder = async () => {
+  const handleOrderSubmission = async () => {
     try {
       setLoading(true);
       const orderData = createOrderData();
 
-      console.log('Submitting cash order:', orderData);
+      console.log('Submitting order:', orderData);
 
       const response = await fetch(`${BACKEND_URL}/api/orders`, {
         method: 'POST',
@@ -265,8 +180,8 @@ const BookingForm = () => {
 
       if (response.ok) {
         const result = await response.json();
-        showSuccessAlert('Order Placed', 'Your cash order has been placed successfully!');
-        console.log('Cash order created successfully:', result);
+        showSuccessAlert('Order Placed', 'Your order has been placed successfully!');
+        console.log('Order created successfully:', result);
         resetForm();
       } else {
         const errorData = await response.json();
@@ -274,93 +189,12 @@ const BookingForm = () => {
       }
       
     } catch (error) {
-      console.error('Error creating cash order:', error);
+      console.error('Error creating order:', error);
       // Show success for demo purposes when backend is not available
-      showSuccessAlert('Order Placed', 'Your cash order has been placed successfully! (Demo mode)');
+      showSuccessAlert('Order Placed', 'Your order has been placed successfully! (Demo mode)');
       resetForm();
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handlePaystackPayment = () => {
-    console.log('=== PAYSTACK PAYMENT ATTEMPT ===');
-    console.log('Paystack loaded status:', paystackLoaded);
-    console.log('Window PaystackPop check:', {
-      exists: !!window.PaystackPop,
-      type: typeof window.PaystackPop,
-      newTransaction_exists: !!(window.PaystackPop && window.PaystackPop.newTransaction),
-      newTransaction_type: window.PaystackPop ? typeof window.PaystackPop.newTransaction : 'N/A'
-    });
-
-    // Final validation before proceeding
-    if (!paystackLoaded || !window.PaystackPop || typeof window.PaystackPop.newTransaction !== 'function') {
-      console.error('❌ Paystack not ready for transaction');
-      showErrorAlert('Payment Error', 'Payment system is not ready. Please wait a moment and try again.');
-      return;
-    }
-
-    const orderData = createOrderData();
-    const totalAmount = calculateTotal();
-
-    console.log('💰 Processing payment:', { orderData, totalAmount });
-
-    const paystackConfig = {
-      key: 'pk_test_6b9715e5aa9e32e4d24899b6e750e7d31e9e3fcd',
-      email: 'customer@meatdoctorucc.com',
-      amount: Math.round(totalAmount * 100), // Amount in pesewas
-      currency: 'GHS',
-      reference: `MD${Date.now()}`,
-      metadata: {
-        orderData: JSON.stringify(orderData),
-        custom_fields: []
-      },
-      callback: async (response: any) => {
-        console.log('✅ PAYMENT SUCCESS:', response);
-        try {
-          setLoading(true);
-          
-          const verifyResponse = await fetch(`${BACKEND_URL}/api/payment/verify-payment`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              reference: response.reference,
-              orderId: null
-            }),
-          });
-
-          if (verifyResponse.ok) {
-            const result = await verifyResponse.json();
-            showSuccessAlert('Payment Successful', 'Your order has been placed and payment confirmed!');
-            console.log('Payment verified successfully:', result);
-            resetForm();
-          } else {
-            throw new Error('Payment verification failed');
-          }
-        } catch (error) {
-          console.error('Error verifying payment:', error);
-          showSuccessAlert('Payment Confirmed', 'Payment successful! Your order has been recorded. (Demo mode)');
-          resetForm();
-        } finally {
-          setLoading(false);
-        }
-      },
-      onClose: () => {
-        console.log('❌ PAYMENT CANCELLED');
-        showErrorAlert('Payment Cancelled', 'Your payment was cancelled. Please try again.');
-      }
-    };
-
-    console.log('🚀 Opening Paystack popup with config:', paystackConfig);
-
-    try {
-      window.PaystackPop.newTransaction(paystackConfig);
-      console.log('✅ Paystack popup opened successfully');
-    } catch (error) {
-      console.error('❌ ERROR OPENING PAYSTACK POPUP:', error);
-      showErrorAlert('Payment Error', `Failed to open payment window: ${error.message}. Please try again.`);
     }
   };
 
@@ -369,13 +203,7 @@ const BookingForm = () => {
     
     if (!validateForm()) return;
 
-    console.log('Form submitted with payment mode:', paymentMode);
-
-    if (paymentMode === 'Mobile Money') {
-      handlePaystackPayment();
-    } else if (paymentMode === 'Cash') {
-      await handleCashOrder();
-    }
+    await handleOrderSubmission();
   };
 
   const selectedFoodData = getSelectedFood();
@@ -566,15 +394,9 @@ const BookingForm = () => {
               <Button
                 type="submit"
                 className="w-full bg-food-primary hover:bg-food-primary/90"
-                disabled={loading || !isFormValid() || (paymentMode === 'Mobile Money' && !paystackLoaded)}
+                disabled={loading || !isFormValid()}
               >
-                {loading ? 'Processing...' : 
-                  paymentMode === 'Mobile Money' 
-                    ? paystackLoaded 
-                      ? `Pay GHS ${calculateTotal().toFixed(2)} with Mobile Money`
-                      : 'Loading Payment System...'
-                    : `Place Order - GHS ${calculateTotal().toFixed(2)}`
-                }
+                {loading ? 'Processing...' : `Place Order - GHS ${calculateTotal().toFixed(2)}`}
               </Button>
             </div>
           </form>
