@@ -9,7 +9,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Remove package-lock.json if it exists and install fresh
-RUN rm -f package-lock.json && npm install --production
+RUN rm -f package-lock.json && npm cache clean --force && npm install --production
 
 # Copy app source
 COPY . .
