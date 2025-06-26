@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { X, Plus } from 'lucide-react';
 import Sweetalert2 from 'sweetalert2';
 import { SiteSettings } from '@/lib/types';
 
@@ -25,6 +26,8 @@ const SettingsPanel = () => {
     sms_settings: null,
   });
   
+  const [adminPhoneNumbers, setAdminPhoneNumbers] = useState<string[]>(['+233543482189', '+233509106283']);
+  const [newPhoneNumber, setNewPhoneNumber] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [ReactQuill, setReactQuill] = useState<any>(null);
@@ -55,7 +58,7 @@ const SettingsPanel = () => {
           }
         }
 
-        const settings: SiteSettings = await response.json();
+        const settings: any = await response.json();
         console.log('Fetched settings:', settings);
         setSiteSettings({
           site_name: settings.site_name || 'MeatDoctor UCC',
@@ -70,6 +73,11 @@ const SettingsPanel = () => {
           email_settings: settings.email_settings || null,
           sms_settings: settings.sms_settings || null,
         });
+        
+        if (settings.admin_phone_numbers && Array.isArray(settings.admin_phone_numbers)) {
+          setAdminPhoneNumbers(settings.admin_phone_numbers);
+        }
+        
         if (settings.background_image_url) {
           setImagePreview(settings.background_image_url);
         }
@@ -93,6 +101,17 @@ const SettingsPanel = () => {
   
   const handleRichTextChange = (name: string, value: string) => {
     setSiteSettings(prev => ({ ...prev, [name]: value }));
+  };
+
+  const addPhoneNumber = () => {
+    if (newPhoneNumber.trim() && !adminPhoneNumbers.includes(newPhoneNumber.trim())) {
+      setAdminPhoneNumbers(prev => [...prev, newPhoneNumber.trim()]);
+      setNewPhoneNumber('');
+    }
+  };
+
+  const removePhoneNumber = (index: number) => {
+    setAdminPhoneNumbers(prev => prev.filter((_, i) => i !== index));
   };
   
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,6 +143,7 @@ const SettingsPanel = () => {
         footer_text: siteSettings.footer_text,
         email_settings: siteSettings.email_settings,
         sms_settings: siteSettings.sms_settings,
+        admin_phone_numbers: adminPhoneNumbers,
       };
 
       console.log('Sending settings payload:', settingsPayload);
@@ -227,10 +247,11 @@ const SettingsPanel = () => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tabs defaultValue="general">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="contact">Contact Info</TabsTrigger>
+          <TabsTrigger value="admin">Admin Settings</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
         
@@ -391,6 +412,70 @@ const SettingsPanel = () => {
                   value={siteSettings.contact_address}
                   onChange={handleInputChange}
                 />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="admin" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Admin Notification Settings</CardTitle>
+              <CardDescription>
+                Configure phone numbers that will receive admin notifications for new orders.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Admin Phone Numbers</Label>
+                <div className="space-y-2">
+                  {adminPhoneNumbers.map((phone, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={phone}
+                        onChange={(e) => {
+                          const newNumbers = [...adminPhoneNumbers];
+                          newNumbers[index] = e.target.value;
+                          setAdminPhoneNumbers(newNumbers);
+                        }}
+                        placeholder="+233XXXXXXXXX"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removePhoneNumber(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input
+                    value={newPhoneNumber}
+                    onChange={(e) => setNewPhoneNumber(e.target.value)}
+                    placeholder="Add new admin phone number (+233XXXXXXXXX)"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addPhoneNumber}
+                    className="shrink-0"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+                
+                <p className="text-sm text-muted-foreground">
+                  Admin phone numbers will receive SMS notifications for new orders and updates.
+                  Use international format: +233XXXXXXXXX
+                </p>
               </div>
             </CardContent>
           </Card>

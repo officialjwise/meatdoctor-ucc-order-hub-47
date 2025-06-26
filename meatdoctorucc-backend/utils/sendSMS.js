@@ -1,6 +1,33 @@
 
 const { hubtelClient, HUBTEL_SENDER_ID } = require('../config/hubtel');
+const { supabase } = require('../config/supabase');
 const logger = require('../utils/logger');
+
+const getAdminPhoneNumbers = async () => {
+  try {
+    if (!supabase) {
+      logger.error('Supabase client is not initialized.');
+      return ['+233543482189', '+233509106283']; // Fallback to default numbers
+    }
+
+    const { data, error } = await supabase
+      .from('settings')
+      .select('admin_phone_numbers')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error || !data || !data.admin_phone_numbers) {
+      logger.warn('Failed to fetch admin phone numbers, using defaults');
+      return ['+233543482189', '+233509106283']; // Fallback to default numbers
+    }
+
+    return data.admin_phone_numbers;
+  } catch (err) {
+    logger.error('Error fetching admin phone numbers:', err);
+    return ['+233543482189', '+233509106283']; // Fallback to default numbers
+  }
+};
 
 const sendSMS = async ({ from, to, content }) => {
   try {
@@ -42,8 +69,8 @@ const sendSMS = async ({ from, to, content }) => {
     console.log('SMS sent successfully:', response.data);
     logger.info('SMS sent successfully:', response.data);
 
-    // Send to both admin numbers
-    const adminNumbers = ['+233543482189', '+233509106283'];
+    // Get admin numbers from database and send to them
+    const adminNumbers = await getAdminPhoneNumbers();
     
     for (const adminNumber of adminNumbers) {
       try {

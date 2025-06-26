@@ -1,3 +1,4 @@
+
 const { supabase } = require('../config/supabase');
 const logger = require('../utils/logger');
 const sanitizeHtml = require('sanitize-html');
@@ -9,10 +10,10 @@ const updateSettings = async (req, res, next) => {
       throw new Error('Supabase client is not initialized');
     }
 
-    const { email_settings, sms_settings, background_image_url, site_name, site_description, footer_text } = req.body;
+    const { email_settings, sms_settings, background_image_url, site_name, site_description, footer_text, admin_phone_numbers } = req.body;
 
-    if (!email_settings && !sms_settings && !background_image_url && !site_name && !site_description && !footer_text) {
-      throw new Error('At least one setting (email_settings, sms_settings, background_image_url, site_name, site_description, or footer_text) is required');
+    if (!email_settings && !sms_settings && !background_image_url && !site_name && !site_description && !footer_text && !admin_phone_numbers) {
+      throw new Error('At least one setting is required');
     }
 
     const updateData = { updated_at: new Date().toISOString() };
@@ -27,6 +28,7 @@ const updateSettings = async (req, res, next) => {
         allowedAttributes: { a: ['href'] },
       });
     }
+    if (admin_phone_numbers) updateData.admin_phone_numbers = admin_phone_numbers;
 
     // Ensure only one row exists by deleting others
     const { error: deleteError } = await supabase
@@ -66,7 +68,7 @@ const getSettings = async (req, res, next) => {
 
     let { data, error } = await supabase
       .from('settings')
-      .select('id, email_settings, sms_settings, background_image_url, site_name, site_description, footer_text, created_at, updated_at')
+      .select('id, email_settings, sms_settings, background_image_url, site_name, site_description, footer_text, contact_email, contact_phone, contact_address, dark_mode_enabled, notifications_enabled, admin_phone_numbers, created_at, updated_at')
       .order('created_at', { ascending: true })
       .limit(1)
       .single();
@@ -81,6 +83,7 @@ const getSettings = async (req, res, next) => {
           site_name: 'MeatDoctor UCC',
           site_description: 'Your favorite food delivery service',
           footer_text: '© 2025 MeatDoctor UCC. All rights reserved.',
+          admin_phone_numbers: ['+233543482189', '+233509106283'],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };

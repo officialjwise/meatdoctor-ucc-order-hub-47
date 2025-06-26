@@ -1,4 +1,3 @@
-
 export interface SiteSettings {
     site_name: string;
     site_description: string;
@@ -9,8 +8,9 @@ export interface SiteSettings {
     dark_mode_enabled: boolean;
     notifications_enabled: boolean;
     footer_text: string;
-    email_settings?: Record<string, any> | null; // Added to match backend
-    sms_settings?: Record<string, any> | null;   // Added to match backend
+    email_settings: any;
+    sms_settings: any;
+    admin_phone_numbers?: string[];
   }
   
   export interface Food {
