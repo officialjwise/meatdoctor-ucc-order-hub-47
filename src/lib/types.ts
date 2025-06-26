@@ -1,3 +1,4 @@
+
 export interface SiteSettings {
     site_name: string;
     site_description: string;
@@ -39,6 +40,8 @@ export interface SiteSettings {
     addons?: string[];
     order_status: string; // Updated to match database field
     created_at: string;
+    payment_status?: string; // Added for payment tracking
+    totalPrice?: number; // Added for revenue calculations
   }
   
   export interface DetailedOrder {
