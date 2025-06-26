@@ -7,6 +7,49 @@ metadata:
     description: "MeatDoctor UCC Backend API"
     tags: "nodejs,express,api"
 objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec:
+    source:
+      type: Git
+      git:
+        uri: ${SOURCE_REPOSITORY_URL}
+        ref: ${SOURCE_REPOSITORY_REF}
+      contextDir: ${CONTEXT_DIR}
+    strategy:
+      type: Source
+      sourceStrategy:
+        from:
+          kind: ImageStreamTag
+          namespace: openshift
+          name: nodejs:18-ubi8
+        env:
+        - name: NPM_MIRROR
+          value: ${NPM_MIRROR}
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${NAME}:latest
+    triggers:
+    - type: GitHub
+      github:
+        secret: ${GITHUB_WEBHOOK_SECRET}
+    - type: Generic
+      generic:
+        secret: ${GENERIC_WEBHOOK_SECRET}
+    - type: ConfigChange
+    - type: ImageChange
+      imageChange: {}
 - apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -25,7 +68,7 @@ objects:
       spec:
         containers:
         - name: ${NAME}
-          image: ${IMAGE}
+          image: " "
           ports:
           - containerPort: 8080
           env:
@@ -103,6 +146,16 @@ objects:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
+    triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${NAME}:latest
 - apiVersion: v1
   kind: Service
   metadata:
@@ -136,8 +189,30 @@ parameters:
   description: The name assigned to all of the frontend objects defined in this template.
   required: true
   value: meatdoctor-ucc-backend
-- name: IMAGE
-  displayName: Docker Image
-  description: The Docker image to deploy
+- name: SOURCE_REPOSITORY_URL
+  displayName: Git Repository URL
+  description: The URL of the repository with your application source code.
   required: true
-  value: your-registry/meatdoctor-ucc-backend:latest
+  value: https://github.com/yourusername/your-repo.git
+- name: SOURCE_REPOSITORY_REF
+  displayName: Git Reference
+  description: Set this to a branch name, tag or other ref of your repository if you are not using the default branch.
+  value: main
+- name: CONTEXT_DIR
+  displayName: Context Directory
+  description: Set this to the relative path to your project if it is not in the root of your repository.
+  value: meatdoctorucc-backend
+- name: GITHUB_WEBHOOK_SECRET
+  displayName: GitHub Webhook Secret
+  description: Github trigger secret.  A difficult to guess string encoded as part of the webhook URL.
+  generate: expression
+  from: "[a-zA-Z0-9]{40}"
+- name: GENERIC_WEBHOOK_SECRET
+  displayName: Generic Webhook Secret
+  description: A secret string used to configure the Generic webhook.
+  generate: expression
+  from: "[a-zA-Z0-9]{40}"
+- name: NPM_MIRROR
+  displayName: Custom NPM Mirror URL
+  description: The custom NPM mirror URL
+  value: ""
