@@ -24,7 +24,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   onChange,
   error,
   label = "Phone Number",
-  placeholder = "123 456 789",
+  placeholder = "0123 456 789",
   className = ""
 }) => {
   const [displayValue, setDisplayValue] = useState('');
@@ -33,43 +33,55 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     // Format the value for display
     if (value) {
       if (value.startsWith('+233')) {
-        setDisplayValue(value.substring(4));
-      } else if (value.startsWith('233')) {
-        setDisplayValue(value.substring(3));
+        // Convert back to local format for display
+        const localNumber = '0' + value.substring(4);
+        setDisplayValue(formatPhoneDisplay(localNumber));
       } else if (value.startsWith('0')) {
-        setDisplayValue(value.substring(1));
+        setDisplayValue(formatPhoneDisplay(value));
       } else {
-        setDisplayValue(value);
+        setDisplayValue(formatPhoneDisplay('0' + value));
       }
     } else {
       setDisplayValue('');
     }
   }, [value]);
 
+  const formatPhoneDisplay = (phone: string) => {
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '');
+    
+    // Format as 0XXX XXX XXX
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+    return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 10)}`;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let inputValue = e.target.value.replace(/\D/g, ''); // Remove non-digits
     
-    // Remove leading zero if present
-    if (inputValue.startsWith('0')) {
-      inputValue = inputValue.substring(1);
+    // Ensure it starts with 0
+    if (inputValue && !inputValue.startsWith('0')) {
+      inputValue = '0' + inputValue;
     }
     
-    // Format for display (add spaces for readability)
-    let formattedDisplay = inputValue;
-    if (inputValue.length > 3) {
-      formattedDisplay = inputValue.substring(0, 3) + ' ' + inputValue.substring(3);
-    }
-    if (inputValue.length > 6) {
-      formattedDisplay = inputValue.substring(0, 3) + ' ' + inputValue.substring(3, 6) + ' ' + inputValue.substring(6, 9);
+    // Limit to 10 digits (0XXXXXXXXX)
+    if (inputValue.length > 10) {
+      inputValue = inputValue.substring(0, 10);
     }
     
+    // Format for display
+    const formattedDisplay = formatPhoneDisplay(inputValue);
     setDisplayValue(formattedDisplay);
     
-    // Send the full international format to parent
-    if (inputValue) {
-      onChange(`+233${inputValue}`);
-    } else {
+    // If we have 10 digits, convert to international format
+    if (inputValue.length === 10 && inputValue.startsWith('0')) {
+      const internationalFormat = '+233' + inputValue.substring(1);
+      onChange(internationalFormat);
+    } else if (inputValue.length === 0) {
       onChange('');
+    } else {
+      // Store as-is for partial numbers
+      onChange(inputValue);
     }
   };
 
@@ -102,10 +114,13 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           onChange={handleInputChange}
           placeholder={placeholder}
           className={`flex-1 ${className} ${error ? 'border-red-500' : ''}`}
-          maxLength={11} // Max length for display (XXX XXX XXX)
+          maxLength={13} // Max length for display (0XXX XXX XXX)
         />
       </div>
       {error && <p className="text-red-500 text-sm">{error}</p>}
+      <p className="text-xs text-muted-foreground">
+        Enter your phone number starting with 0 (e.g., 0123 456 789)
+      </p>
     </div>
   );
 };

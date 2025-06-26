@@ -11,9 +11,26 @@ import { ZoomIn } from 'lucide-react';
 import PhoneInput from './PhoneInput';
 import DateTimePicker from './DateTimePicker';
 import FoodImageGallery from './FoodImageGallery';
+import OrderDetailsModal from './OrderDetailsModal';
 import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
 const BACKEND_URL = 'http://localhost:3000';
+
+// Load Paystack script
+const loadPaystackScript = () => {
+  return new Promise<void>((resolve, reject) => {
+    if (document.querySelector('script[src*="paystack"]')) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v1/inline.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load Paystack script'));
+    document.head.appendChild(script);
+  });
+};
 
 const BookingForm = () => {
   const [selectedFood, setSelectedFood] = useState('');
@@ -31,6 +48,7 @@ const BookingForm = () => {
   const [additionalOptions, setAdditionalOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [orderDetailsModal, setOrderDetailsModal] = useState({ open: false, orderData: null });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,7 +91,8 @@ const BookingForm = () => {
           { id: '2', name: 'UCC Hospital', is_active: true }
         ]);
         setPaymentMethods([
-          { id: '1', name: 'Cash', is_active: true }
+          { id: '1', name: 'Cash', is_active: true },
+          { id: '2', name: 'Card', is_active: true }
         ]);
         setAdditionalOptions([
           { id: '1', name: 'Extra Sauce', price: 2 },
@@ -84,6 +103,7 @@ const BookingForm = () => {
     };
 
     fetchData();
+    loadPaystackScript().catch(console.error);
   }, []);
 
   const getSelectedFood = () => {
@@ -163,12 +183,11 @@ const BookingForm = () => {
     };
   };
 
-  const handleOrderSubmission = async () => {
+  const handleCashOrder = async () => {
     try {
       setLoading(true);
       const orderData = createOrderData();
-
-      console.log('Submitting order:', orderData);
+      console.log('Submitting cash order:', orderData);
 
       const response = await fetch(`${BACKEND_URL}/api/orders`, {
         method: 'POST',
@@ -180,20 +199,65 @@ const BookingForm = () => {
 
       if (response.ok) {
         const result = await response.json();
-        showSuccessAlert('Order Placed', 'Your order has been placed successfully!');
-        console.log('Order created successfully:', result);
+        const food = getSelectedFood();
+        
+        const orderDetails = {
+          ...result,
+          food: food,
+          totalPrice: calculateTotal(),
+          addons: selectedAddons,
+          deliveryDateTime: new Date(deliveryDateTime).toLocaleString()
+        };
+
+        setOrderDetailsModal({ open: true, orderData: orderDetails });
         resetForm();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create order');
       }
-      
     } catch (error) {
-      console.error('Error creating order:', error);
-      // Show success for demo purposes when backend is not available
-      showSuccessAlert('Order Placed', 'Your order has been placed successfully! (Demo mode)');
-      resetForm();
+      console.error('Error creating cash order:', error);
+      showErrorAlert('Order Failed', 'Unable to place order. Please try again.');
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaystackPayment = async () => {
+    try {
+      setLoading(true);
+      
+      if (!window.PaystackPop) {
+        throw new Error('Paystack not loaded');
+      }
+
+      const orderData = createOrderData();
+      const totalAmount = calculateTotal();
+      
+      const handler = window.PaystackPop.setup({
+        key: 'pk_test_your_public_key_here', // Replace with your Paystack public key
+        email: 'customer@email.com', // You might want to add email field to form
+        amount: totalAmount * 100, // Amount in kobo
+        currency: 'GHS',
+        ref: `MD_${Date.now()}`,
+        metadata: {
+          orderData: JSON.stringify(orderData)
+        },
+        callback: function(response: any) {
+          console.log('Payment successful:', response);
+          // Redirect to success page
+          window.location.href = `/payment-success?reference=${response.reference}&orderId=${orderData.foodId}`;
+        },
+        onClose: function() {
+          console.log('Payment modal closed');
+          setLoading(false);
+        }
+      });
+
+      handler.openIframe();
+    } catch (error) {
+      console.error('Paystack payment error:', error);
+      showErrorAlert('Payment Error', 'Unable to initialize payment. Please try again.');
       setLoading(false);
     }
   };
@@ -203,7 +267,11 @@ const BookingForm = () => {
     
     if (!validateForm()) return;
 
-    await handleOrderSubmission();
+    if (paymentMode === 'Cash') {
+      await handleCashOrder();
+    } else {
+      await handlePaystackPayment();
+    }
   };
 
   const selectedFoodData = getSelectedFood();
@@ -270,7 +338,6 @@ const BookingForm = () => {
               </div>
             )}
 
-            {/* Quantity */}
             <div className="space-y-2">
               <Label htmlFor="quantity">Quantity *</Label>
               <Input
@@ -283,7 +350,6 @@ const BookingForm = () => {
               />
             </div>
 
-            {/* Additional Options */}
             {additionalOptions.length > 0 && (
               <div className="space-y-3">
                 <Label>Additional Options</Label>
@@ -304,7 +370,6 @@ const BookingForm = () => {
               </div>
             )}
 
-            {/* Delivery Location */}
             <div className="space-y-2">
               <Label htmlFor="location">Delivery Location *</Label>
               <Select value={deliveryLocation} onValueChange={setDeliveryLocation}>
@@ -410,6 +475,13 @@ const BookingForm = () => {
         isOpen={galleryOpen}
         onClose={() => setGalleryOpen(false)}
         initialIndex={0}
+      />
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        isOpen={orderDetailsModal.open}
+        onClose={() => setOrderDetailsModal({ open: false, orderData: null })}
+        orderData={orderDetailsModal.orderData}
       />
     </>
   );
