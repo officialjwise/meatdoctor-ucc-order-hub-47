@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Table, 
@@ -32,12 +31,19 @@ import { toast } from "sonner";
 
 const BACKEND_URL = 'http://localhost:3000';
 
-const BookingsTable = ({ bookings, onBookingsUpdate }) => {
+interface BookingsTableProps {
+  bookings: any[];
+  onBookingsUpdate: (updatedBookings: any) => void;
+  initialStatus?: string | null;
+  initialDate?: string | null;
+}
+
+const BookingsTable = ({ bookings, onBookingsUpdate, initialStatus, initialDate }: BookingsTableProps) => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialStatus || "all");
+  const [dateFilter, setDateFilter] = useState(initialDate || "");
   const [editedStatus, setEditedStatus] = useState("");
   const [hasNewNotification, setHasNewNotification] = useState(false);
   
@@ -47,6 +53,16 @@ const BookingsTable = ({ bookings, onBookingsUpdate }) => {
   const [totalOrders, setTotalOrders] = useState(0);
   const [loading, setLoading] = useState(false);
   const ITEMS_PER_PAGE = 10;
+
+  // Update filters when initial props change
+  useEffect(() => {
+    if (initialStatus !== undefined) {
+      setStatusFilter(initialStatus || "all");
+    }
+    if (initialDate !== undefined) {
+      setDateFilter(initialDate || "");
+    }
+  }, [initialStatus, initialDate]);
 
   // Load paginated bookings
   const loadBookings = async (page = 1, status = statusFilter, date = dateFilter) => {
