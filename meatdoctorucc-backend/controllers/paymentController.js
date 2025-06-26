@@ -1,4 +1,3 @@
-
 const { supabase } = require('../config/supabase');
 const { sendSMS } = require('../utils/sendSMS');
 const logger = require('../utils/logger');
@@ -114,24 +113,18 @@ const verifyPaystackPayment = async (req, res, next) => {
     try {
       console.log('Attempting to send SMS notifications for payment confirmation...');
       
-      // SMS to the customer with correct payment details
+      // Shortened SMS to the customer
       const customerSmsContent = `PAYMENT CONFIRMED! 💳✅
 
 Order ID: ${generatedOrderId}
-Payment Ref: ${reference}
-Amount Paid: GHS ${actualAmountPaid.toFixed(2)}
+${food.name} x ${orderData.quantity}
+Amount: GHS ${actualAmountPaid.toFixed(2)}
+Delivery: ${deliveryDate}
+Status: CONFIRMED
 
-ORDER DETAILS:
-🍽️ ${food.name} x ${orderData.quantity}${orderData.addons && orderData.addons.length > 0 ? `
-🍟 Add-ons: ${orderData.addons.join(', ')}` : ''}
-📍 Delivery: ${orderData.deliveryLocation}
-⏰ Time: ${deliveryDate}
-💰 Total: GHS ${actualAmountPaid.toFixed(2)}
-✅ Status: CONFIRMED
+Track: meatdoctorucc.com/track-order/${generatedOrderId}
 
-Track your order: meatdoctorucc.com/track-order/${generatedOrderId}
-
-Thank you for choosing MeatDoctor UCC! 🍔`;
+Thank you! 🍔`;
 
       console.log('Sending customer SMS to:', orderData.phoneNumber);
       console.log('Customer SMS content:', customerSmsContent);

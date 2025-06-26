@@ -97,21 +97,18 @@ const createOrder = async (req, res, next) => {
           minute: '2-digit',
         });
 
-        // SMS to the customer only
+        // Shortened SMS to the customer
         const customerSmsContent = `ORDER RECEIVED! 📋
 
 Order ID: ${orderId}
-🍽️ ${food.name} x ${quantity}${addons && addons.length > 0 ? `
-🍟 Add-ons: ${addons.join(', ')}` : ''}
-📍 Delivery: ${deliveryLocation}
-⏰ Time: ${deliveryDate}
-💰 Total: GHS ${totalPrice.toFixed(2)}
-💳 Payment: ${paymentMode}
-✅ Status: PENDING
+${food.name} x ${quantity}
+Total: GHS ${totalPrice.toFixed(2)}
+Delivery: ${deliveryDate}
+Status: PENDING
 
-Track your order: meatdoctorucc.com/track-order/${orderId}
+Track: meatdoctorucc.com/track-order/${orderId}
 
-Thank you for choosing MeatDoctor UCC! 🍔`;
+Thank you! 🍔`;
 
         console.log('Sending customer SMS to:', phoneNumber);
         console.log('SMS content:', customerSmsContent);
@@ -180,32 +177,24 @@ const updateOrder = async (req, res, next) => {
     try {
       console.log('Attempting to send SMS notification to customer for status update...');
       
-      const deliveryDate = new Date(data.delivery_time).toLocaleString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
       let statusMessage = '';
       let statusEmoji = '';
       
       switch (orderStatus) {
         case 'Confirmed':
-          statusMessage = 'Your order has been confirmed and is being prepared!';
+          statusMessage = 'Order confirmed and being prepared!';
           statusEmoji = '✅';
           break;
         case 'Delivered':
-          statusMessage = 'Your order has been delivered! Enjoy your meal!';
+          statusMessage = 'Order delivered! Enjoy your meal!';
           statusEmoji = '🎉';
           break;
         case 'Cancelled':
-          statusMessage = 'Your order has been cancelled.';
+          statusMessage = 'Order cancelled.';
           statusEmoji = '❌';
           break;
         default:
-          statusMessage = `Your order status has been updated to: ${orderStatus}`;
+          statusMessage = `Status: ${orderStatus}`;
           statusEmoji = '📋';
       }
 
@@ -214,15 +203,12 @@ const updateOrder = async (req, res, next) => {
 Order ID: ${data.order_id}
 ${statusMessage}
 
-🍽️ ${data.foods.name} x ${data.quantity}${data.addons && data.addons.length > 0 ? `
-🍟 Add-ons: ${data.addons.join(', ')}` : ''}
-📍 Delivery: ${data.delivery_location}
-⏰ Time: ${deliveryDate}
-📊 Status: ${orderStatus.toUpperCase()}
+${data.foods.name} x ${data.quantity}
+Status: ${orderStatus.toUpperCase()}
 
-Track your order: meatdoctorucc.com/track-order/${data.order_id}
+Track: meatdoctorucc.com/track-order/${data.order_id}
 
-Thank you for choosing MeatDoctor UCC! 🍔`;
+MeatDoctor UCC 🍔`;
 
       console.log('Sending status update SMS to customer:', data.phone_number);
       console.log('SMS content:', customerSmsContent);
