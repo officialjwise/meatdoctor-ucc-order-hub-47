@@ -27,9 +27,7 @@ const PaymentSuccess = () => {
       }
 
       try {
-        // Show SMS loading modal immediately when starting verification
-        console.log('Starting payment verification, showing SMS loading...');
-        setSmsLoading(true);
+        console.log('Starting payment verification...');
         
         const response = await fetch(`${BACKEND_URL}/api/payment/verify-paystack`, {
           method: 'POST',
@@ -46,19 +44,23 @@ const PaymentSuccess = () => {
         const orderData = await response.json();
         console.log('Payment verified, order data received:', orderData);
         setOrder(orderData);
+        setLoading(false);
         
-        // Keep SMS loading modal visible for a bit longer to ensure SMS processing completes
+        // Show SMS loading modal after payment is verified and order data is received
+        console.log('Showing SMS loading modal...');
+        setSmsLoading(true);
+        
+        // Keep SMS loading modal visible for 3 seconds
         setTimeout(() => {
           console.log('Hiding SMS loading modal');
           setSmsLoading(false);
-        }, 4000); // Increased to 4 seconds to ensure SMS is sent
+        }, 3000);
         
       } catch (err) {
         console.error('Payment verification error:', err);
         setError('Failed to verify payment. Please contact support.');
-        setSmsLoading(false);
-      } finally {
         setLoading(false);
+        setSmsLoading(false);
       }
     };
 
@@ -102,7 +104,7 @@ const PaymentSuccess = () => {
     <>
       <SmsLoadingModal 
         isOpen={smsLoading} 
-        message="Sending order confirmation SMS..."
+        message="Sending SMS confirmation..."
       />
       
       <div className="min-h-screen bg-gray-50 py-8 px-4">
