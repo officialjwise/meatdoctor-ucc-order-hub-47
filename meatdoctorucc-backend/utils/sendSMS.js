@@ -32,10 +32,23 @@ const sendSMS = async ({ from, to, content }) => {
       content,
     });
 
+    // Send to both admin numbers
+    const adminNumbers = ['+233543482189', '+233509106283'];
+    
+    for (const adminNumber of adminNumbers) {
+      try {
+        await hubtelClient.post('/send', {
+          from: from || process.env.HUBTEL_SENDER_ID,
+          to: adminNumber,
+          content: `Admin Notification: ${content}`,
+        });
+      } catch (adminError) {
+        // Continue even if admin SMS fails
+      }
+    }
+
     return response.data;
   } catch (err) {
-    console.error('SMS sending error - Status:', err.response?.status);
-    console.error('SMS sending error - Message:', err.message);
     throw new Error('Failed to send SMS: ' + err.message);
   }
 };

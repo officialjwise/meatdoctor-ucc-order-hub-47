@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -52,8 +51,11 @@ const AdminDashboard = () => {
       return;
     }
 
-    // Only load bookings for the orders page
+    // Reset filters when navigating directly to orders page
     if (location.pathname.endsWith('/orders')) {
+      // Reset filters when coming from menu navigation
+      setFilterStatus(null);
+      setFilterDate(null);
       loadBookings();
     }
   }, [navigate, location.pathname]);
@@ -100,7 +102,6 @@ const AdminDashboard = () => {
       const data = await response.json();
       setBookings(data.orders || []);
     } catch (error) {
-      console.error('Error fetching bookings:', error);
       toast.error(error.message || 'Failed to load bookings. Please try again.');
     } finally {
       setLoading(false);

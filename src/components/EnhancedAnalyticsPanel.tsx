@@ -19,14 +19,13 @@ const EnhancedAnalyticsPanel = () => {
 
   useEffect(() => {
     fetchAnalytics();
-  }, [dateRange, selectedCategory]); // Auto-fetch when filters change
+  }, [dateRange, selectedCategory]);
 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
       
-      // Build query parameters
       const params = new URLSearchParams();
       if (dateRange !== 'all') {
         const today = new Date();
@@ -77,7 +76,6 @@ const EnhancedAnalyticsPanel = () => {
         setBookings(Array.isArray(ordersData.orders) ? ordersData.orders : []);
       }
     } catch (error) {
-      // Handle error silently
       setAnalytics(null);
       setBookings([]);
     } finally {
@@ -85,7 +83,7 @@ const EnhancedAnalyticsPanel = () => {
     }
   };
 
-  // Calculate revenue metrics for confirmed orders only
+  // Enhanced revenue calculation to handle confirmed/delivered orders with successful payments
   const calculateRevenue = (orders: Booking[], filterFn?: (order: Booking) => boolean) => {
     const filteredOrders = filterFn ? orders.filter(filterFn) : orders;
     return filteredOrders
@@ -93,7 +91,11 @@ const EnhancedAnalyticsPanel = () => {
         order.payment_status === 'success' && 
         (order.order_status === 'Confirmed' || order.order_status === 'Delivered')
       )
-      .reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+      .reduce((sum, order) => {
+        // Use totalPrice if available, otherwise calculate from food price * quantity
+        const orderTotal = order.totalPrice || (order.food?.price ? order.food.price * order.quantity : 0);
+        return sum + orderTotal;
+      }, 0);
   };
 
   // Date filtering helpers
@@ -123,11 +125,11 @@ const EnhancedAnalyticsPanel = () => {
     return orderDate.getFullYear() === today.getFullYear();
   };
 
-  // Revenue calculations
+  // Revenue calculations with proper filtering
   const todaysRevenue = calculateRevenue(bookings, (order) => isToday(order.created_at));
   const thisWeekRevenue = calculateRevenue(bookings, (order) => isThisWeek(order.created_at));
   const thisMonthRevenue = calculateRevenue(bookings, (order) => isThisMonth(order.created_at));
-  const thisYearRevenue = calculateRevenue(bookings, (order) => isThisYear(order.created_at));
+  const allTimeRevenue = calculateRevenue(bookings);
 
   // Previous period comparisons
   const lastWeekOrders = bookings.filter(order => {
@@ -197,7 +199,7 @@ const EnhancedAnalyticsPanel = () => {
         </div>
       </div>
 
-      {/* Revenue Overview Cards */}
+      {/* Revenue Overview Cards - Main 4 cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -240,12 +242,50 @@ const EnhancedAnalyticsPanel = () => {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Year</CardTitle>
+            <CardTitle className="text-sm font-medium">All Time Revenue</CardTitle>
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">GHS {thisYearRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Year to date</p>
+            <div className="text-2xl font-bold">GHS {allTimeRevenue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">Total revenue</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Summary Stats - Additional 3 cards moved here */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics?.totalBookings || 0}</div>
+            <p className="text-xs text-muted-foreground">All time orders</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              GHS {analytics?.totalBookings > 0 ? (allTimeRevenue / analytics.totalBookings).toFixed(2) : '0.00'}
+            </div>
+            <p className="text-xs text-muted-foreground">Per order average</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Unique Locations</CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics?.topLocations?.length || 0}</div>
+            <p className="text-xs text-muted-foreground">Delivery areas served</p>
           </CardContent>
         </Card>
       </div>
@@ -338,44 +378,6 @@ const EnhancedAnalyticsPanel = () => {
                 <Bar dataKey="count" fill="#ffc658" />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics?.totalBookings || 0}</div>
-            <p className="text-xs text-muted-foreground">All time orders</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              GHS {analytics?.totalBookings > 0 ? (analytics.totalRevenue / analytics.totalBookings).toFixed(2) : '0.00'}
-            </div>
-            <p className="text-xs text-muted-foreground">Per order average</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unique Locations</CardTitle>
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics?.topLocations?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Delivery areas served</p>
           </CardContent>
         </Card>
       </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { Eye, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
+import OrderDetailsModal from './OrderDetailsModal';
 
 const BACKEND_URL = 'http://localhost:3000';
 
@@ -37,6 +37,8 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   useEffect(() => {
     if (initialStatus) {
@@ -115,10 +117,43 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
         throw new Error('Failed to update order status');
       }
 
+      // Send SMS notification after successful status update
+      await sendStatusUpdateSMS(orderId, newStatus);
+
       toast.success('Order status updated successfully');
       loadBookings();
     } catch (error) {
       toast.error('Failed to update order status');
+    }
+  };
+
+  const sendStatusUpdateSMS = async (orderId: string, newStatus: string) => {
+    try {
+      // Get order details first
+      const orderResponse = await fetch(`${BACKEND_URL}/api/orders/track/${orderId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+        },
+      });
+
+      if (orderResponse.ok) {
+        const orderData = await orderResponse.json();
+        
+        await fetch(`${BACKEND_URL}/api/send-sms`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          },
+          body: JSON.stringify({
+            to: orderData.phone_number,
+            message: `Your order ${orderId} status has been updated to: ${newStatus}. Track your order here: https://meatdoctorucc.netlify.app/track-order/${orderId}`,
+          }),
+        });
+      }
+    } catch (error) {
+      // SMS sending error - don't show to user as order update was successful
     }
   };
 
@@ -144,6 +179,11 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
     } catch (error) {
       toast.error('Failed to delete order');
     }
+  };
+
+  const handleViewOrder = (booking: any) => {
+    setSelectedOrder(booking);
+    setIsOrderModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -204,180 +244,193 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Orders Management</span>
-          <div className="text-sm font-normal text-muted-foreground">
-            {totalItems} total orders
-          </div>
-        </CardTitle>
-        
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+    <>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Orders Management</span>
+            <div className="text-sm font-normal text-muted-foreground">
+              {totalItems} total orders
+            </div>
+          </CardTitle>
+          
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search by Order ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-40">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Status</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Confirmed">Confirmed</SelectItem>
+                <SelectItem value="Delivered">Delivered</SelectItem>
+                <SelectItem value="Cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            
             <Input
-              placeholder="Search by Order ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-40"
             />
           </div>
-          
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Status</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Confirmed">Confirmed</SelectItem>
-              <SelectItem value="Delivered">Delivered</SelectItem>
-              <SelectItem value="Cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="w-40"
-          />
-        </div>
-      </CardHeader>
-      
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <LoadingSpinner size="lg" />
-            <span className="ml-2">Loading orders...</span>
-          </div>
-        ) : (
-          <>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Food Item</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredBookings.length === 0 ? (
+        </CardHeader>
+        
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <LoadingSpinner size="lg" />
+              <span className="ml-2">Loading orders...</span>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
-                        No orders found
-                      </TableCell>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Food Item</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredBookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell className="font-medium">
-                          {booking.order_id}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{booking.food?.name}</div>
-                            <div className="text-sm text-gray-500">Qty: {booking.quantity}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">{booking.phone_number}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">{booking.delivery_location}</div>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={booking.order_status}
-                            onValueChange={(value) => handleStatusUpdate(booking.id, value)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <Badge className={getStatusColor(booking.order_status)}>
-                                {booking.order_status}
-                              </Badge>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Pending">Pending</SelectItem>
-                              <SelectItem value="Confirmed">Confirmed</SelectItem>
-                              <SelectItem value="Delivered">Delivered</SelectItem>
-                              <SelectItem value="Cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">
-                            GHS {booking.totalPrice?.toFixed(2) || '0.00'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {formatDate(booking.created_at)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleDelete(booking.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBookings.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8">
+                          No orders found
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} orders
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1 || loading}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
-                  {renderPaginationButtons()}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages || loading}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                    ) : (
+                      filteredBookings.map((booking) => (
+                        <TableRow key={booking.id}>
+                          <TableCell className="font-medium">
+                            {booking.order_id}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{booking.food?.name}</div>
+                              <div className="text-sm text-gray-500">Qty: {booking.quantity}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{booking.phone_number}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{booking.delivery_location}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={booking.order_status}
+                              onValueChange={(value) => handleStatusUpdate(booking.id, value)}
+                            >
+                              <SelectTrigger className="w-32">
+                                <Badge className={getStatusColor(booking.order_status)}>
+                                  {booking.order_status}
+                                </Badge>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Pending">Pending</SelectItem>
+                                <SelectItem value="Confirmed">Confirmed</SelectItem>
+                                <SelectItem value="Delivered">Delivered</SelectItem>
+                                <SelectItem value="Cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">
+                              GHS {booking.totalPrice?.toFixed(2) || '0.00'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {formatDate(booking.created_at)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleViewOrder(booking)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDelete(booking.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} orders
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1 || loading}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    {renderPaginationButtons()}
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages || loading}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        orderData={selectedOrder}
+      />
+    </>
   );
 };
 
