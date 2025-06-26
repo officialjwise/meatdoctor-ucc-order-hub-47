@@ -88,6 +88,8 @@ const createOrder = async (req, res, next) => {
     // Send SMS notification for new order
     if (paymentMode === 'Cash') {
       try {
+        console.log('Attempting to send SMS notification for cash order...');
+        
         const deliveryDate = new Date(deliveryTime).toLocaleString('en-GB', {
           day: '2-digit',
           month: '2-digit',
@@ -112,13 +114,18 @@ Track your order: meatdoctorucc.com/track-order/${orderId}
 
 Thank you for choosing MeatDoctor UCC! 🍔`;
 
-        await sendSMS({
+        console.log('Sending customer SMS to:', phoneNumber);
+        console.log('SMS content:', customerSmsContent);
+
+        const smsResult = await sendSMS({
           to: phoneNumber,
           content: customerSmsContent,
         });
 
-        logger.info('SMS notifications sent successfully');
+        console.log('Customer SMS sent successfully:', smsResult);
+        logger.info('SMS notifications sent successfully for cash order');
       } catch (smsError) {
+        console.error('Failed to send SMS notifications:', smsError);
         logger.error('Failed to send SMS notifications:', smsError);
         // Continue with the response even if SMS fails
       }
@@ -170,6 +177,8 @@ const updateOrder = async (req, res, next) => {
 
     // Send SMS notification for status update
     try {
+      console.log('Attempting to send SMS notification for status update...');
+      
       const deliveryDate = new Date(data.delivery_time).toLocaleString('en-GB', {
         day: '2-digit',
         month: '2-digit',
@@ -214,13 +223,18 @@ Track your order: meatdoctorucc.com/track-order/${data.order_id}
 
 Thank you for choosing MeatDoctor UCC! 🍔`;
 
-      await sendSMS({
+      console.log('Sending status update SMS to:', data.phone_number);
+      console.log('SMS content:', customerSmsContent);
+
+      const smsResult = await sendSMS({
         to: data.phone_number,
         content: customerSmsContent,
       });
 
+      console.log('Status update SMS sent successfully:', smsResult);
       logger.info('SMS notification sent for status update');
     } catch (smsError) {
+      console.error('Failed to send SMS notification for status update:', smsError);
       logger.error('Failed to send SMS notification for status update:', smsError);
       // Continue with the response even if SMS fails
     }

@@ -5,7 +5,8 @@ const logger = require('../utils/logger');
 // Hubtel credentials
 const HUBTEL_CLIENT_ID = 'uqxxbxto';
 const HUBTEL_CLIENT_SECRET = 'ducdxtfy';
-const HUBTEL_BASE_URL = 'https://sms.hubtel.com/v1/messages';
+const HUBTEL_SENDER_ID = 'MeatDoctor';
+const HUBTEL_BASE_URL = 'https://smsc.hubtel.com/v1/messages/send';
 
 // Create axios instance for Hubtel API
 const hubtelClient = axios.create({
@@ -23,6 +24,7 @@ const hubtelClient = axios.create({
 hubtelClient.interceptors.request.use(
   (config) => {
     logger.info(`Hubtel API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    logger.info('Request data:', JSON.stringify(config.data, null, 2));
     return config;
   },
   (error) => {
@@ -35,6 +37,7 @@ hubtelClient.interceptors.request.use(
 hubtelClient.interceptors.response.use(
   (response) => {
     logger.info(`Hubtel API Response: ${response.status} ${response.statusText}`);
+    logger.info('Response data:', JSON.stringify(response.data, null, 2));
     return response;
   },
   (error) => {
@@ -43,4 +46,4 @@ hubtelClient.interceptors.response.use(
   }
 );
 
-module.exports = hubtelClient;
+module.exports = { hubtelClient, HUBTEL_SENDER_ID };

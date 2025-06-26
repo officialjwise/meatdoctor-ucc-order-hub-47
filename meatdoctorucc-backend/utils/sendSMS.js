@@ -1,5 +1,5 @@
 
-const hubtelClient = require('../config/hubtel');
+const { hubtelClient, HUBTEL_SENDER_ID } = require('../config/hubtel');
 const logger = require('../utils/logger');
 
 const sendSMS = async ({ from, to, content }) => {
@@ -29,27 +29,36 @@ const sendSMS = async ({ from, to, content }) => {
 
     console.log(`Sending SMS to ${formattedPhone}: ${content}`);
 
-    const response = await hubtelClient.post('', {
-      From: from || 'MeatDoctor',
-      To: formattedPhone,
-      Content: content,
-    });
+    const smsData = {
+      from: from || HUBTEL_SENDER_ID,
+      to: formattedPhone,
+      content: content,
+    };
+
+    console.log('SMS payload:', JSON.stringify(smsData, null, 2));
+
+    const response = await hubtelClient.post('', smsData);
 
     console.log('SMS sent successfully:', response.data);
+    logger.info('SMS sent successfully:', response.data);
 
     // Send to both admin numbers
     const adminNumbers = ['+233543482189', '+233509106283'];
     
     for (const adminNumber of adminNumbers) {
       try {
-        await hubtelClient.post('', {
-          From: from || 'MeatDoctor',
-          To: adminNumber,
-          Content: `Admin Notification: ${content}`,
-        });
-        console.log(`Admin SMS sent to ${adminNumber}`);
+        const adminSmsData = {
+          from: from || HUBTEL_SENDER_ID,
+          to: adminNumber,
+          content: `Admin Notification: ${content}`,
+        };
+
+        const adminResponse = await hubtelClient.post('', adminSmsData);
+        console.log(`Admin SMS sent to ${adminNumber}:`, adminResponse.data);
+        logger.info(`Admin SMS sent to ${adminNumber}:`, adminResponse.data);
       } catch (adminError) {
         console.error(`Failed to send admin SMS to ${adminNumber}:`, adminError.message);
+        logger.error(`Failed to send admin SMS to ${adminNumber}:`, adminError);
         // Continue even if admin SMS fails
       }
     }
@@ -57,6 +66,12 @@ const sendSMS = async ({ from, to, content }) => {
     return response.data;
   } catch (err) {
     console.error('Failed to send SMS:', err.message);
+    console.error('SMS Error details:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status,
+      statusText: err.response?.statusText
+    });
     logger.error('SMS sending failed:', err);
     throw new Error('Failed to send SMS: ' + err.message);
   }

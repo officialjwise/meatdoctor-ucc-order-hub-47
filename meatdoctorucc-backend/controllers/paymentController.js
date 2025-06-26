@@ -112,7 +112,7 @@ const verifyPaystackPayment = async (req, res, next) => {
 
     // Send SMS notifications
     try {
-      console.log('Attempting to send SMS notifications...');
+      console.log('Attempting to send SMS notifications for payment confirmation...');
       
       // SMS to the customer with correct payment details
       const customerSmsContent = `PAYMENT CONFIRMED! 💳✅
@@ -142,14 +142,15 @@ Thank you for choosing MeatDoctor UCC! 🍔`;
       });
 
       console.log('Customer SMS sent successfully:', customerSmsResult);
-      logger.info('SMS notifications sent successfully');
+      logger.info('SMS notifications sent successfully for payment confirmation');
       
     } catch (smsError) {
       logger.error('Failed to send SMS notifications:', smsError);
       console.error('SMS Error details:', {
         message: smsError.message,
         stack: smsError.stack,
-        phoneNumber: orderData.phoneNumber
+        phoneNumber: orderData.phoneNumber,
+        response: smsError.response?.data
       });
       // Continue with the response even if SMS fails
     }
