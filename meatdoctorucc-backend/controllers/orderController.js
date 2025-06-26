@@ -22,8 +22,6 @@ const createOrder = async (req, res, next) => {
       drink, 
     } = req.body;
 
-    console.log('Received order data:', req.body);
-
     // Fetch food details
     const { data: food, error: foodError } = await supabase
       .from('foods')

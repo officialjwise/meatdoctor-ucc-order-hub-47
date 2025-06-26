@@ -19,15 +19,26 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { toast } from 'sonner';
 
 const BACKEND_URL = 'http://localhost:3000';
+const ITEMS_PER_PAGE = 9;
 
 const CategoryManagement = () => {
   const [categories, setCategories] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentCategory, setCurrentCategory] = useState(null);
   const [formData, setFormData] = useState({ name: '' });
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     loadCategories();
@@ -47,17 +58,16 @@ const CategoryManagement = () => {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to fetch categories (Status: ${response.status})`);
+          throw new Error(errorData.message || `Failed to fetch categories`);
         } else {
-          throw new Error(`Failed to fetch categories (Status: ${response.status}) - Unexpected response format`);
+          throw new Error(`Failed to fetch categories`);
         }
       }
 
       const data = await response.json();
       setCategories(data);
     } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error(error.message || 'Failed to load categories.');
+      toast.error('Failed to load categories.');
     }
   };
 
@@ -93,17 +103,16 @@ const CategoryManagement = () => {
           const contentType = response.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             const errorData = await response.json();
-            throw new Error(errorData.message || `Failed to delete category (Status: ${response.status})`);
+            throw new Error(errorData.message || `Failed to delete category`);
           } else {
-            throw new Error(`Failed to delete category (Status: ${response.status}) - Unexpected response format`);
+            throw new Error(`Failed to delete category`);
           }
         }
 
         toast.success('Category deleted successfully.');
         loadCategories();
       } catch (error) {
-        console.error('Error deleting category:', error);
-        toast.error(error.message || 'Failed to delete category.');
+        toast.error('Failed to delete category.');
       }
     }
   };
@@ -132,9 +141,9 @@ const CategoryManagement = () => {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to ${currentCategory ? 'update' : 'add'} category (Status: ${response.status})`);
+          throw new Error(errorData.message || `Failed to ${currentCategory ? 'update' : 'add'} category`);
         } else {
-          throw new Error(`Failed to ${currentCategory ? 'update' : 'add'} category (Status: ${response.status}) - Unexpected response format`);
+          throw new Error(`Failed to ${currentCategory ? 'update' : 'add'} category`);
         }
       }
 
@@ -143,10 +152,14 @@ const CategoryManagement = () => {
       resetForm();
       setOpenDialog(false);
     } catch (error) {
-      console.error('Error saving category:', error);
-      toast.error(error.message || `Failed to ${currentCategory ? 'update' : 'add'} category.`);
+      toast.error(`Failed to ${currentCategory ? 'update' : 'add'} category.`);
     }
   };
+
+  const totalPages = Math.ceil(categories.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentCategories = categories.slice(startIndex, endIndex);
 
   return (
     <div className="space-y-6">
@@ -190,7 +203,7 @@ const CategoryManagement = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.map((category) => (
+        {currentCategories.map((category) => (
           <Card key={category.id}>
             <CardHeader>
               <CardTitle>{category.name}</CardTitle>
@@ -206,6 +219,38 @@ const CategoryManagement = () => {
           </Card>
         ))}
       </div>
+
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            
+            <PaginationItem>
+              <PaginationNext 
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
 
       {categories.length === 0 && (
         <div className="text-center py-12">

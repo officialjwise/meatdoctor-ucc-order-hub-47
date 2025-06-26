@@ -186,7 +186,6 @@ const BookingForm = () => {
     try {
       setLoading(true);
       const orderData = createOrderData();
-      console.log('Submitting cash order:', orderData);
 
       const response = await fetch(`${BACKEND_URL}/api/orders`, {
         method: 'POST',
@@ -215,7 +214,6 @@ const BookingForm = () => {
         throw new Error(errorData.message || 'Failed to create order');
       }
     } catch (error) {
-      console.error('Error creating cash order:', error);
       showErrorAlert('Order Failed', 'Unable to place order. Please try again.');
     } finally {
       setLoading(false);
@@ -233,35 +231,27 @@ const BookingForm = () => {
       const orderData = createOrderData();
       const totalAmount = calculateTotal();
       
-      // Use the environment variable for the public key
       const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_b2c3ae1064ed15226bdf5260ea65e70080e2f1a2';
-      
-      console.log('Using Paystack public key:', publicKey);
-      console.log('Total amount:', totalAmount);
       
       const handler = window.PaystackPop.setup({
         key: publicKey,
-        email: 'customer@email.com', // You might want to add email field to form
-        amount: totalAmount * 100, // Amount in kobo
+        email: 'customer@email.com',
+        amount: totalAmount * 100,
         currency: 'GHS',
         ref: `MD_${Date.now()}`,
         metadata: {
           orderData: JSON.stringify(orderData)
         },
         callback: function(response: any) {
-          console.log('Payment successful:', response);
-          // Handle successful payment - verify with backend
           handlePaymentVerification(response.reference, orderData);
         },
         onClose: function() {
-          console.log('Payment modal closed');
           setLoading(false);
         }
       });
 
       handler.openIframe();
     } catch (error) {
-      console.error('Paystack payment error:', error);
       showErrorAlert('Payment Error', 'Unable to initialize payment. Please try again.');
       setLoading(false);
     }
@@ -296,7 +286,6 @@ const BookingForm = () => {
         throw new Error('Payment verification failed');
       }
     } catch (error) {
-      console.error('Payment verification error:', error);
       showErrorAlert('Payment Verification Failed', 'Payment was successful but verification failed. Please contact support.');
       setLoading(false);
     }
