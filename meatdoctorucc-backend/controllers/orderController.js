@@ -1,5 +1,7 @@
+
 const { supabase } = require('../config/supabase');
 const { v4: uuidv4 } = require('uuid');
+const { sendSMS } = require('../utils/sendSMS');
 const logger = require('../utils/logger');
 
 const createOrder = async (req, res, next) => {
@@ -83,6 +85,45 @@ const createOrder = async (req, res, next) => {
       throw new Error(`Failed to create order: ${orderError.message}`);
     }
 
+    // Send SMS notification for new order
+    if (paymentMode === 'Cash') {
+      try {
+        const deliveryDate = new Date(deliveryTime).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        // SMS to the customer
+        const customerSmsContent = `ORDER RECEIVED! 📋
+
+Order ID: ${orderId}
+🍽️ ${food.name} x ${quantity}${addons && addons.length > 0 ? `
+🍟 Add-ons: ${addons.join(', ')}` : ''}
+📍 Delivery: ${deliveryLocation}
+⏰ Time: ${deliveryDate}
+💰 Total: GHS ${totalPrice.toFixed(2)}
+💳 Payment: ${paymentMode}
+✅ Status: PENDING
+
+Track your order: meatdoctorucc.com/track-order/${orderId}
+
+Thank you for choosing MeatDoctor UCC! 🍔`;
+
+        await sendSMS({
+          to: phoneNumber,
+          content: customerSmsContent,
+        });
+
+        logger.info('SMS notifications sent successfully');
+      } catch (smsError) {
+        logger.error('Failed to send SMS notifications:', smsError);
+        // Continue with the response even if SMS fails
+      }
+    }
+
     logger.info(`Order ${orderId} created successfully`);
 
     res.status(201).json({ ...order, totalPrice, foodName: food.name });
@@ -125,6 +166,63 @@ const updateOrder = async (req, res, next) => {
     if (error || !data) {
       logger.error('Order update error:', error?.message);
       throw new Error('Failed to update order');
+    }
+
+    // Send SMS notification for status update
+    try {
+      const deliveryDate = new Date(data.delivery_time).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      let statusMessage = '';
+      let statusEmoji = '';
+      
+      switch (orderStatus) {
+        case 'Confirmed':
+          statusMessage = 'Your order has been confirmed and is being prepared!';
+          statusEmoji = '✅';
+          break;
+        case 'Delivered':
+          statusMessage = 'Your order has been delivered! Enjoy your meal!';
+          statusEmoji = '🎉';
+          break;
+        case 'Cancelled':
+          statusMessage = 'Your order has been cancelled.';
+          statusEmoji = '❌';
+          break;
+        default:
+          statusMessage = `Your order status has been updated to: ${orderStatus}`;
+          statusEmoji = '📋';
+      }
+
+      const customerSmsContent = `ORDER UPDATE ${statusEmoji}
+
+Order ID: ${data.order_id}
+${statusMessage}
+
+🍽️ ${data.foods.name} x ${data.quantity}${data.addons && data.addons.length > 0 ? `
+🍟 Add-ons: ${data.addons.join(', ')}` : ''}
+📍 Delivery: ${data.delivery_location}
+⏰ Time: ${deliveryDate}
+📊 Status: ${orderStatus.toUpperCase()}
+
+Track your order: meatdoctorucc.com/track-order/${data.order_id}
+
+Thank you for choosing MeatDoctor UCC! 🍔`;
+
+      await sendSMS({
+        to: data.phone_number,
+        content: customerSmsContent,
+      });
+
+      logger.info('SMS notification sent for status update');
+    } catch (smsError) {
+      logger.error('Failed to send SMS notification for status update:', smsError);
+      // Continue with the response even if SMS fails
     }
 
     // Fetch addon details for total price calculation

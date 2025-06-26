@@ -142,37 +142,6 @@ Thank you for choosing MeatDoctor UCC! 🍔`;
       });
 
       console.log('Customer SMS sent successfully:', customerSmsResult);
-
-      // SMS to the admin with payment confirmation
-      const adminPhoneNumber = '+233543482189';
-      const adminSmsContent = `🚨 NEW PAID ORDER RECEIVED! 💰
-
-Order ID: ${generatedOrderId}
-Payment Ref: ${reference}
-Amount Received: GHS ${actualAmountPaid.toFixed(2)}
-
-CUSTOMER INFO:
-📞 ${orderData.phoneNumber}
-📍 ${orderData.deliveryLocation}
-
-ORDER DETAILS:
-🍽️ ${food.name} x ${orderData.quantity}${orderData.addons && orderData.addons.length > 0 ? `
-🍟 Add-ons: ${orderData.addons.join(', ')}` : ''}
-⏰ Delivery: ${deliveryDate}
-💳 Payment: ${orderData.paymentMode} (PAID ✅)
-💰 Total: GHS ${actualAmountPaid.toFixed(2)}
-
-Status: CONFIRMED - Ready to prepare! 🍳`;
-
-      console.log('Sending admin SMS to:', adminPhoneNumber);
-      console.log('Admin SMS content:', adminSmsContent);
-
-      const adminSmsResult = await sendSMS({
-        to: adminPhoneNumber,
-        content: adminSmsContent,
-      });
-
-      console.log('Admin SMS sent successfully:', adminSmsResult);
       logger.info('SMS notifications sent successfully');
       
     } catch (smsError) {
