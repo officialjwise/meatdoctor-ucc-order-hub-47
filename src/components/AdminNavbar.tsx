@@ -1,93 +1,172 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
-  Settings, 
-  BarChart3, 
-  UtensilsCrossed,
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Settings,
+  BarChart3,
+  Utensils,
   MapPin,
   CreditCard,
-  Tags,
-  Plus
+  FolderOpen,
+  Plus,
+  Menu
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
-const AdminNavbar = ({ isMobile }: { isMobile: boolean }) => {
+interface AdminNavbarProps {
+  isMobile: boolean;
+  onOrdersMenuClick?: () => void;
+}
+
+const AdminNavbar = ({ isMobile, onOrdersMenuClick }: AdminNavbarProps) => {
   const location = useLocation();
-  
-  const navigationItems = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Orders', href: '/admin/dashboard/orders', icon: ShoppingBag },
-    { name: 'Foods', href: '/admin/dashboard/foods', icon: UtensilsCrossed },
-    { name: 'Categories', href: '/admin/dashboard/categories', icon: Tags },
-    { name: 'Locations', href: '/admin/dashboard/locations', icon: MapPin },
-    { name: 'Payment Methods', href: '/admin/dashboard/payment-methods', icon: CreditCard },
-    { name: 'Additional Options', href: '/admin/dashboard/additional-options', icon: Plus },
-    { name: 'Analytics', href: '/admin/dashboard/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/admin/dashboard/settings', icon: Settings },
+  const [isOpen, setIsOpen] = useState(false);
+
+  const menuItems = [
+    {
+      title: 'Dashboard',
+      icon: LayoutDashboard,
+      href: '/admin/dashboard',
+    },
+    {
+      title: 'Orders',
+      icon: ShoppingBag,
+      href: '/admin/dashboard/orders',
+      onClick: onOrdersMenuClick,
+    },
+    {
+      title: 'Analytics',
+      icon: BarChart3,
+      href: '/admin/dashboard/analytics',
+    },
+    {
+      title: 'Food Management',
+      icon: Utensils,
+      href: '/admin/dashboard/foods',
+    },
+    {
+      title: 'Categories',
+      icon: FolderOpen,
+      href: '/admin/dashboard/categories',
+    },
+    {
+      title: 'Locations',
+      icon: MapPin,
+      href: '/admin/dashboard/locations',
+    },
+    {
+      title: 'Payment Methods',
+      icon: CreditCard,
+      href: '/admin/dashboard/payment-methods',
+    },
+    {
+      title: 'Additional Options',
+      icon: Plus,
+      href: '/admin/dashboard/additional-options',
+    },
+    {
+      title: 'Settings',
+      icon: Settings,
+      href: '/admin/dashboard/settings',
+    },
   ];
+
+  const NavContent = () => (
+    <div className="space-y-4 py-4">
+      <div className="px-3 py-2">
+        <h2 className="mb-2 px-4 text-lg font-semibold">
+          Admin Panel
+        </h2>
+        <div className="space-y-1">
+          {menuItems.map((item) => (
+            <Button
+              key={item.href}
+              variant={location.pathname === item.href ? 'secondary' : 'ghost'}
+              className="w-full justify-start"
+              asChild={!item.onClick}
+              onClick={item.onClick ? () => {
+                item.onClick();
+                if (isMobile) setIsOpen(false);
+              } : undefined}
+            >
+              {item.onClick ? (
+                <span>
+                  <item.icon className="mr-2 h-4 w-4" />
+                  {item.title}
+                </span>
+              ) : (
+                <Link to={item.href} onClick={() => isMobile && setIsOpen(false)}>
+                  <item.icon className="mr-2 h-4 w-4" />
+                  {item.title}
+                </Link>
+              )}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   if (isMobile) {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50">
-        <div className="flex justify-around items-center h-16 px-2">
-          {navigationItems.slice(0, 5).map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
-            
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center p-2 rounded-lg transition-colors min-w-0 flex-1",
-                  isActive 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}
-              >
-                <Icon className="h-5 w-5 mb-1" />
-                <span className="text-xs truncate">{item.name}</span>
-              </Link>
-            );
-          })}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
+        <div className="flex items-center justify-between p-4">
+          <h1 className="text-lg font-semibold">MeatDoctor Admin</h1>
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Menu className="h-4 w-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0">
+              <ScrollArea className="h-full">
+                <NavContent />
+              </ScrollArea>
+            </SheetContent>
+          </Sheet>
         </div>
-      </nav>
+      </div>
     );
   }
 
   return (
-    <nav className="w-64 bg-background border-r border-border h-screen sticky top-0">
-      <div className="p-6">
-        <h2 className="text-lg font-semibold mb-6">Admin Panel</h2>
-        <ul className="space-y-2">
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
-            
-            return (
-              <li key={item.name}>
-                <Link
-                  to={item.href}
-                  className={cn(
-                    "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.name}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+    <div className="pb-12 w-64">
+      <div className="space-y-4 py-4 h-screen bg-background border-r">
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold">
+            MeatDoctor Admin
+          </h2>
+          <div className="space-y-1">
+            {menuItems.map((item) => (
+              <Button
+                key={item.href}
+                variant={location.pathname === item.href ? 'secondary' : 'ghost'}
+                className="w-full justify-start"
+                asChild={!item.onClick}
+                onClick={item.onClick}
+              >
+                {item.onClick ? (
+                  <span>
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </span>
+                ) : (
+                  <Link to={item.href}>
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </Link>
+                )}
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
-    </nav>
+    </div>
   );
 };
 

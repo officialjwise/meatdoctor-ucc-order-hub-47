@@ -1,5 +1,6 @@
 
 const hubtelClient = require('../config/hubtel');
+const logger = require('../utils/logger');
 
 const sendSMS = async ({ from, to, content }) => {
   try {
@@ -26,29 +27,37 @@ const sendSMS = async ({ from, to, content }) => {
       throw new Error('Invalid phone number format. Expected format: +233XXXXXXXXX');
     }
 
-    const response = await hubtelClient.post('/send', {
-      from: from || process.env.HUBTEL_SENDER_ID,
-      to: formattedPhone,
-      content,
+    console.log(`Sending SMS to ${formattedPhone}: ${content}`);
+
+    const response = await hubtelClient.post('', {
+      From: from || 'MeatDoctor',
+      To: formattedPhone,
+      Content: content,
     });
+
+    console.log('SMS sent successfully:', response.data);
 
     // Send to both admin numbers
     const adminNumbers = ['+233543482189', '+233509106283'];
     
     for (const adminNumber of adminNumbers) {
       try {
-        await hubtelClient.post('/send', {
-          from: from || process.env.HUBTEL_SENDER_ID,
-          to: adminNumber,
-          content: `Admin Notification: ${content}`,
+        await hubtelClient.post('', {
+          From: from || 'MeatDoctor',
+          To: adminNumber,
+          Content: `Admin Notification: ${content}`,
         });
+        console.log(`Admin SMS sent to ${adminNumber}`);
       } catch (adminError) {
+        console.error(`Failed to send admin SMS to ${adminNumber}:`, adminError.message);
         // Continue even if admin SMS fails
       }
     }
 
     return response.data;
   } catch (err) {
+    console.error('Failed to send SMS:', err.message);
+    logger.error('SMS sending failed:', err);
     throw new Error('Failed to send SMS: ' + err.message);
   }
 };

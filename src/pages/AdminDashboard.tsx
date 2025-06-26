@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -28,6 +29,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState(null);
   const [filterDate, setFilterDate] = useState(null);
+  const [shouldResetFilters, setShouldResetFilters] = useState(false);
   
   useEffect(() => {
     // Check if authenticated and token is not expired
@@ -51,14 +53,17 @@ const AdminDashboard = () => {
       return;
     }
 
-    // Reset filters when navigating directly to orders page
+    // Reset filters when navigating directly to orders page via menu
     if (location.pathname.endsWith('/orders')) {
-      // Reset filters when coming from menu navigation
-      setFilterStatus(null);
-      setFilterDate(null);
+      // Check if this is a direct navigation to orders (not from dashboard filter)
+      if (shouldResetFilters) {
+        setFilterStatus(null);
+        setFilterDate(null);
+        setShouldResetFilters(false);
+      }
       loadBookings();
     }
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, shouldResetFilters]);
 
   const loadBookings = async () => {
     try {
@@ -102,6 +107,7 @@ const AdminDashboard = () => {
       const data = await response.json();
       setBookings(data.orders || []);
     } catch (error) {
+      console.error('Error loading bookings:', error);
       toast.error(error.message || 'Failed to load bookings. Please try again.');
     } finally {
       setLoading(false);
@@ -120,6 +126,15 @@ const AdminDashboard = () => {
   const handleDashboardFilter = useCallback((status, date) => {
     setFilterStatus(status);
     setFilterDate(date);
+    setShouldResetFilters(false); // Don't reset filters when coming from dashboard
+    navigate('/admin/dashboard/orders');
+  }, [navigate]);
+
+  // Handle direct orders menu navigation
+  const handleOrdersMenuNavigation = useCallback(() => {
+    setShouldResetFilters(true); // Reset filters when navigating via menu
+    setFilterStatus(null);
+    setFilterDate(null);
     navigate('/admin/dashboard/orders');
   }, [navigate]);
   
@@ -175,7 +190,10 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background">
       <div className="flex flex-col md:flex-row">
         {/* Sidebar */}
-        <AdminNavbar isMobile={isMobile} />
+        <AdminNavbar 
+          isMobile={isMobile} 
+          onOrdersMenuClick={handleOrdersMenuNavigation}
+        />
         
         {/* Main Content */}
         <main className="flex-1">
@@ -210,6 +228,7 @@ const AdminDashboard = () => {
                   onBookingsUpdate={handleBookingsUpdate}
                   initialStatus={filterStatus}
                   initialDate={filterDate}
+                  resetFilters={shouldResetFilters}
                 />
               } />
               <Route path="settings" element={<SettingsPanel />} />

@@ -72,10 +72,14 @@ const EnhancedAnalyticsPanel = () => {
         const analyticsData = await analyticsRes.json();
         const ordersData = await ordersRes.json();
         
+        console.log('Analytics data:', analyticsData);
+        console.log('Orders data:', ordersData);
+        
         setAnalytics(analyticsData);
         setBookings(Array.isArray(ordersData.orders) ? ordersData.orders : []);
       }
     } catch (error) {
+      console.error('Error fetching analytics:', error);
       setAnalytics(null);
       setBookings([]);
     } finally {
@@ -83,25 +87,31 @@ const EnhancedAnalyticsPanel = () => {
     }
   };
 
-  // Enhanced revenue calculation to handle confirmed/delivered orders with successful payments
+  // Fixed revenue calculation to handle all possible order statuses
   const calculateRevenue = (orders: Booking[], filterFn?: (order: Booking) => boolean) => {
     const filteredOrders = filterFn ? orders.filter(filterFn) : orders;
-    return filteredOrders
-      .filter(order => 
-        order.payment_status === 'success' && 
-        (order.order_status === 'Confirmed' || order.order_status === 'Delivered')
-      )
-      .reduce((sum, order) => {
-        // Use totalPrice if available, otherwise calculate from food price * quantity
-        const orderTotal = order.totalPrice || (order.food?.price ? order.food.price * order.quantity : 0);
-        return sum + orderTotal;
-      }, 0);
+    console.log('Calculating revenue for orders:', filteredOrders);
+    
+    return filteredOrders.reduce((sum, order) => {
+      // Calculate order total based on available data
+      let orderTotal = 0;
+      
+      if (order.totalPrice) {
+        orderTotal = order.totalPrice;
+      } else if (order.food?.price && order.quantity) {
+        orderTotal = order.food.price * order.quantity;
+      }
+      
+      console.log(`Order ${order.order_id}: total = ${orderTotal}, status = ${order.order_status}`);
+      return sum + orderTotal;
+    }, 0);
   };
 
   // Date filtering helpers
   const isToday = (date: string) => {
     const today = new Date().toISOString().slice(0, 10);
-    return date.startsWith(today);
+    const orderDate = new Date(date).toISOString().slice(0, 10);
+    return orderDate === today;
   };
 
   const isThisWeek = (date: string) => {
@@ -130,6 +140,13 @@ const EnhancedAnalyticsPanel = () => {
   const thisWeekRevenue = calculateRevenue(bookings, (order) => isThisWeek(order.created_at));
   const thisMonthRevenue = calculateRevenue(bookings, (order) => isThisMonth(order.created_at));
   const allTimeRevenue = calculateRevenue(bookings);
+
+  console.log('Revenue calculations:', {
+    today: todaysRevenue,
+    week: thisWeekRevenue,
+    month: thisMonthRevenue,
+    allTime: allTimeRevenue
+  });
 
   // Previous period comparisons
   const lastWeekOrders = bookings.filter(order => {
@@ -199,7 +216,7 @@ const EnhancedAnalyticsPanel = () => {
         </div>
       </div>
 
-      {/* Revenue Overview Cards - Main 4 cards */}
+      {/* Revenue Overview Cards - All 7 cards in unified layout */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -208,7 +225,7 @@ const EnhancedAnalyticsPanel = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">GHS {todaysRevenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Confirmed orders only</p>
+            <p className="text-xs text-muted-foreground">Revenue for today</p>
           </CardContent>
         </Card>
         
@@ -250,10 +267,7 @@ const EnhancedAnalyticsPanel = () => {
             <p className="text-xs text-muted-foreground">Total revenue</p>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Summary Stats - Additional 3 cards moved here */}
-      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
