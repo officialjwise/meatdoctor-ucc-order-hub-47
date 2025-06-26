@@ -5,8 +5,11 @@ FROM node:18-alpine
 WORKDIR /usr/src/app
 
 # Install app dependencies
+# Copy package.json and package-lock.json (if available)
 COPY package*.json ./
-RUN npm ci --only=production
+
+# Remove package-lock.json if it exists and install fresh
+RUN rm -f package-lock.json && npm install --production
 
 # Copy app source
 COPY . .
