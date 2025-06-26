@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,8 +75,13 @@ const SettingsPanel = () => {
           sms_settings: settings.sms_settings || null,
         });
         
+        // Handle admin phone numbers - expect an array from the database
         if (settings.admin_phone_numbers && Array.isArray(settings.admin_phone_numbers)) {
-          setAdminPhoneNumbers(settings.admin_phone_numbers);
+          console.log('Setting admin phone numbers:', settings.admin_phone_numbers);
+          setAdminPhoneNumbers(settings.admin_phone_numbers.filter(num => num && num.trim() !== ''));
+        } else {
+          console.log('No admin phone numbers found, using defaults');
+          setAdminPhoneNumbers(['+233543482189', '+233509106283']);
         }
         
         if (settings.background_image_url) {
@@ -104,8 +110,9 @@ const SettingsPanel = () => {
   };
 
   const addPhoneNumber = () => {
-    if (newPhoneNumber.trim() && !adminPhoneNumbers.includes(newPhoneNumber.trim())) {
-      setAdminPhoneNumbers(prev => [...prev, newPhoneNumber.trim()]);
+    const trimmedNumber = newPhoneNumber.trim();
+    if (trimmedNumber && !adminPhoneNumbers.includes(trimmedNumber)) {
+      setAdminPhoneNumbers(prev => [...prev, trimmedNumber]);
       setNewPhoneNumber('');
     }
   };
@@ -143,7 +150,7 @@ const SettingsPanel = () => {
         footer_text: siteSettings.footer_text,
         email_settings: siteSettings.email_settings,
         sms_settings: siteSettings.sms_settings,
-        admin_phone_numbers: adminPhoneNumbers,
+        admin_phone_numbers: adminPhoneNumbers.filter(num => num && num.trim() !== ''),
       };
 
       console.log('Sending settings payload:', settingsPayload);
@@ -219,7 +226,7 @@ const SettingsPanel = () => {
       });
 
       if (fetchResponse.ok) {
-        const updatedSettings: SiteSettings = await fetchResponse.json();
+        const updatedSettings: any = await fetchResponse.json();
         console.log('Refreshed settings:', updatedSettings);
         setSiteSettings({
           site_name: updatedSettings.site_name || 'MeatDoctor UCC',
@@ -234,6 +241,12 @@ const SettingsPanel = () => {
           email_settings: updatedSettings.email_settings || null,
           sms_settings: updatedSettings.sms_settings || null,
         });
+        
+        // Update admin phone numbers from refreshed settings
+        if (updatedSettings.admin_phone_numbers && Array.isArray(updatedSettings.admin_phone_numbers)) {
+          setAdminPhoneNumbers(updatedSettings.admin_phone_numbers.filter(num => num && num.trim() !== ''));
+        }
+        
         if (updatedSettings.background_image_url) {
           setImagePreview(updatedSettings.background_image_url);
         }

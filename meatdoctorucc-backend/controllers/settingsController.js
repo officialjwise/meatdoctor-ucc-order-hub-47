@@ -28,28 +28,75 @@ const updateSettings = async (req, res, next) => {
         allowedAttributes: { a: ['href'] },
       });
     }
-    if (admin_phone_numbers) updateData.admin_phone_numbers = admin_phone_numbers;
+    if (admin_phone_numbers && Array.isArray(admin_phone_numbers)) {
+      updateData.admin_phone_numbers = admin_phone_numbers;
+    }
 
-    // Ensure only one row exists by deleting others
+    // Get the first settings row to update
+    const { data: existingSettings, error: fetchError } = await supabase
+      .from('settings')
+      .select('id')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      logger.error(`Supabase error fetching settings: ${JSON.stringify(fetchError)}`);
+      throw new Error(`Failed to fetch settings: ${fetchError.message}`);
+    }
+
+    let data;
+    if (existingSettings) {
+      // Update existing settings
+      const { data: updatedData, error: updateError } = await supabase
+        .from('settings')
+        .update(updateData)
+        .eq('id', existingSettings.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        logger.error(`Supabase error updating settings: ${JSON.stringify(updateError)}`);
+        throw new Error(`Failed to update settings: ${updateError.message}`);
+      }
+      data = updatedData;
+    } else {
+      // Create new settings row
+      const defaultSettings = {
+        email_settings: null,
+        sms_settings: null,
+        background_image_url: null,
+        site_name: 'MeatDoctor UCC',
+        site_description: 'Your favorite food delivery service',
+        footer_text: '© 2025 MeatDoctor UCC. All rights reserved.',
+        admin_phone_numbers: ['+233543482189', '+233509106283'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        ...updateData
+      };
+
+      const { data: newData, error: insertError } = await supabase
+        .from('settings')
+        .insert([defaultSettings])
+        .select()
+        .single();
+
+      if (insertError) {
+        logger.error(`Supabase error creating settings: ${JSON.stringify(insertError)}`);
+        throw new Error(`Failed to create settings: ${insertError.message}`);
+      }
+      data = newData;
+    }
+
+    // Clean up extra rows
     const { error: deleteError } = await supabase
       .from('settings')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+      .neq('id', data.id);
 
     if (deleteError) {
       logger.error(`Supabase error deleting extra settings rows: ${JSON.stringify(deleteError)}`);
       throw new Error(`Failed to delete extra settings rows: ${deleteError.message}`);
-    }
-
-    const { data, error } = await supabase
-      .from('settings')
-      .upsert(updateData, { onConflict: 'id' })
-      .select()
-      .single();
-
-    if (error) {
-      logger.error(`Supabase error in updateSettings: ${JSON.stringify(error)}`);
-      throw new Error(`Failed to update settings: ${error.message}`);
     }
 
     res.status(200).json({ message: 'Settings updated successfully' });

@@ -22,7 +22,12 @@ const getAdminPhoneNumbers = async () => {
       return ['+233543482189', '+233509106283']; // Fallback to default numbers
     }
 
-    return data.admin_phone_numbers;
+    // Ensure we have an array and filter out empty strings
+    const phoneNumbers = Array.isArray(data.admin_phone_numbers) 
+      ? data.admin_phone_numbers.filter(num => num && num.trim() !== '')
+      : ['+233543482189', '+233509106283'];
+
+    return phoneNumbers.length > 0 ? phoneNumbers : ['+233543482189', '+233509106283'];
   } catch (err) {
     logger.error('Error fetching admin phone numbers:', err);
     return ['+233543482189', '+233509106283']; // Fallback to default numbers
@@ -71,18 +76,40 @@ const sendSMS = async ({ from, to, content }) => {
 
     // Get admin numbers from database and send to them
     const adminNumbers = await getAdminPhoneNumbers();
+    console.log('Admin numbers retrieved:', adminNumbers);
     
     for (const adminNumber of adminNumbers) {
       try {
+        // Format admin number properly
+        let formattedAdminPhone = adminNumber;
+        
+        // Remove any spaces, dashes, or parentheses
+        formattedAdminPhone = formattedAdminPhone.replace(/[\s\-\(\)]/g, '');
+        
+        // Handle different phone number formats
+        if (formattedAdminPhone.startsWith('0')) {
+          formattedAdminPhone = '+233' + formattedAdminPhone.substring(1);
+        } else if (formattedAdminPhone.startsWith('233')) {
+          formattedAdminPhone = '+' + formattedAdminPhone;
+        } else if (!formattedAdminPhone.startsWith('+233')) {
+          formattedAdminPhone = '+233' + formattedAdminPhone;
+        }
+
+        // Validate admin phone number format
+        if (!/^\+233\d{9}$/.test(formattedAdminPhone)) {
+          console.warn(`Invalid admin phone number format: ${adminNumber}`);
+          continue;
+        }
+
         const adminSmsData = {
           from: from || HUBTEL_SENDER_ID,
-          to: adminNumber,
+          to: formattedAdminPhone,
           content: `Admin Notification: ${content}`,
         };
 
         const adminResponse = await hubtelClient.post('', adminSmsData);
-        console.log(`Admin SMS sent to ${adminNumber}:`, adminResponse.data);
-        logger.info(`Admin SMS sent to ${adminNumber}:`, adminResponse.data);
+        console.log(`Admin SMS sent to ${formattedAdminPhone}:`, adminResponse.data);
+        logger.info(`Admin SMS sent to ${formattedAdminPhone}:`, adminResponse.data);
       } catch (adminError) {
         console.error(`Failed to send admin SMS to ${adminNumber}:`, adminError.message);
         logger.error(`Failed to send admin SMS to ${adminNumber}:`, adminError);

@@ -294,6 +294,7 @@ export type Database = {
       }
       settings: {
         Row: {
+          admin_phone_numbers: string[] | null
           background_image_url: string | null
           contact_address: string | null
           contact_email: string | null
@@ -310,6 +311,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          admin_phone_numbers?: string[] | null
           background_image_url?: string | null
           contact_address?: string | null
           contact_email?: string | null
@@ -326,6 +328,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          admin_phone_numbers?: string[] | null
           background_image_url?: string | null
           contact_address?: string | null
           contact_email?: string | null
