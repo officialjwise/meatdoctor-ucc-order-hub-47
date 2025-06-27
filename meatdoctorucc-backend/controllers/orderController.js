@@ -392,6 +392,31 @@ const deleteOrder = async (req, res, next) => {
   }
 };
 
+const deleteAllOrders = async (req, res, next) => {
+  try {
+    if (!supabase) {
+      logger.error('Supabase client is not initialized.');
+      throw new Error('Supabase client is not initialized');
+    }
+
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .neq('id', 0); // This will delete all rows since id will never be 0
+
+    if (error) {
+      logger.error('Delete all orders error:', error.message);
+      throw new Error('Failed to delete all orders');
+    }
+
+    logger.info('All orders deleted successfully');
+    res.status(200).json({ message: 'All orders deleted successfully' });
+  } catch (err) {
+    logger.error(`Error in deleteAllOrders: ${err.message}`);
+    next(err);
+  }
+};
+
 const trackOrder = async (req, res, next) => {
   try {
     if (!supabase) {
@@ -463,4 +488,4 @@ const trackOrder = async (req, res, next) => {
   }
 };
 
-module.exports = { createOrder, updateOrder, getOrders, deleteOrder, trackOrder };
+module.exports = { createOrder, updateOrder, getOrders, deleteOrder, deleteAllOrders, trackOrder };

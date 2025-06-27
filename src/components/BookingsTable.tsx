@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Eye, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import LoadingSpinner from './LoadingSpinner';
 import OrderDetailsModal from './OrderDetailsModal';
+import { showConfirmationAlert, showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
 const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
@@ -109,6 +110,40 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
       toast.error('Failed to load bookings');
       setBookings([]);
       setFilteredBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    try {
+      const result = await showConfirmationAlert(
+        'Delete All Orders',
+        'Are you sure you want to delete ALL orders? This action cannot be undone and will permanently remove all order data from the database.',
+        'Yes, Delete All',
+        'Cancel'
+      );
+
+      if (result.isConfirmed) {
+        setLoading(true);
+        
+        const response = await fetch(`${BACKEND_URL}/api/orders/delete-all`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete all orders');
+        }
+
+        await showSuccessAlert('Success', 'All orders have been deleted successfully');
+        loadBookings(); // Reload the bookings list
+      }
+    } catch (error) {
+      console.error('Error deleting all orders:', error);
+      showErrorAlert('Error', 'Failed to delete all orders. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -276,8 +311,21 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Orders Management</span>
-            <div className="text-sm font-normal text-muted-foreground">
-              {totalItems} total orders
+            <div className="flex items-center gap-4">
+              <div className="text-sm font-normal text-muted-foreground">
+                {totalItems} total orders
+              </div>
+              {totalItems > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleDeleteAll}
+                  disabled={loading}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete All Orders
+                </Button>
+              )}
             </div>
           </CardTitle>
           
