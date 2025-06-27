@@ -1,3 +1,4 @@
+
 const express = require('express');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const {
@@ -41,6 +42,21 @@ router.post(
   },
   createFood
 );
+
+// Image upload route - place before the :id routes to avoid conflicts
+router.post(
+  '/upload-image',
+  authMiddleware,
+  (req, res, next) => {
+    upload.array('images')(req, res, (err) => {
+      if (err) return handleMulterError(err, req, res, next);
+      next();
+    });
+  },
+  uploadFoodImage
+);
+
+// Routes with :id parameter should come after specific routes
 router.put('/:id', authMiddleware, updateFood);
 router.delete('/:id', authMiddleware, deleteFood);
 router.post(
