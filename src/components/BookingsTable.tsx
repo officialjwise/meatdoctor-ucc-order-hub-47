@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,7 @@ import { Eye, Trash2, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-r
 import LoadingSpinner from './LoadingSpinner';
 import OrderDetailsModal from './OrderDetailsModal';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 interface BookingsTableProps {
   bookings: any;

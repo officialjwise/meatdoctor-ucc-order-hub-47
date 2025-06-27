@@ -18,9 +18,7 @@ import { toast } from 'sonner';
 import { Bell, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const BACKEND_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://your-backend-url.com' // Replace with your actual backend URL
-  : 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 const AdminDashboard = () => {
   const isMobile = useIsMobile();

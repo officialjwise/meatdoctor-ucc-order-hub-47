@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,7 +31,7 @@ import {
 } from "@/components/ui/pagination";
 import { toast } from 'sonner';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 const ITEMS_PER_PAGE = 9;
 
 const CategoryManagement = () => {
