@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +29,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { toast } from 'sonner';
+import LoadingSpinner from './LoadingSpinner';
 
 const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 const ITEMS_PER_PAGE = 9;
@@ -40,6 +40,7 @@ const CategoryManagement = () => {
   const [currentCategory, setCurrentCategory] = useState(null);
   const [formData, setFormData] = useState({ name: '' });
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadCategories();
@@ -47,6 +48,7 @@ const CategoryManagement = () => {
 
   const loadCategories = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`${BACKEND_URL}/api/categories`, {
         method: 'GET',
         headers: {
@@ -69,6 +71,8 @@ const CategoryManagement = () => {
       setCategories(data);
     } catch (error) {
       toast.error('Failed to load categories.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,6 +165,15 @@ const CategoryManagement = () => {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentCategories = categories.slice(startIndex, endIndex);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <LoadingSpinner size="lg" />
+        <span className="ml-2">Loading categories...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

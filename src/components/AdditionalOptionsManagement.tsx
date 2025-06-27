@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import LoadingSpinner from './LoadingSpinner';
 
 const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
@@ -29,6 +30,7 @@ const AdditionalOptionsManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [currentOption, setCurrentOption] = useState(null);
   const [formData, setFormData] = useState({ name: '', type: '', price: '' });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadOptions();
@@ -36,6 +38,7 @@ const AdditionalOptionsManagement = () => {
 
   const loadOptions = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`${BACKEND_URL}/api/additional-options`, {
         method: 'GET',
         headers: {
@@ -59,6 +62,8 @@ const AdditionalOptionsManagement = () => {
     } catch (error) {
       console.error('Error fetching additional options:', error);
       toast.error(error.message || 'Failed to load additional options.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -156,6 +161,15 @@ const AdditionalOptionsManagement = () => {
       toast.error(error.message || `Failed to ${currentOption ? 'update' : 'add'} additional option.`);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <LoadingSpinner size="lg" />
+        <span className="ml-2">Loading additional options...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -218,27 +218,32 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
   };
 
   const handleDelete = async (orderId: string) => {
-    if (!confirm('Are you sure you want to delete this order?')) {
-      return;
-    }
-
     try {
-      const response = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-        },
-      });
+      const result = await showConfirmationAlert(
+        'Delete Order',
+        'Are you sure you want to delete this order? This action cannot be undone.',
+        'Yes, Delete',
+        'Cancel'
+      );
 
-      if (!response.ok) {
-        throw new Error('Failed to delete order');
+      if (result.isConfirmed) {
+        const response = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete order');
+        }
+
+        await showSuccessAlert('Success', 'Order deleted successfully');
+        loadBookings();
       }
-
-      toast.success('Order deleted successfully');
-      loadBookings();
     } catch (error) {
       console.error('Error deleting order:', error);
-      toast.error('Failed to delete order');
+      showErrorAlert('Error', 'Failed to delete order. Please try again.');
     }
   };
 
