@@ -26,12 +26,15 @@ import {
   Plus,
   Search,
   X,
-  Image
+  Image,
+  Trash
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
+import LoadingSpinner from './LoadingSpinner';
+import Swal from 'sweetalert2';
 
 const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
@@ -45,6 +48,8 @@ const FoodManagement = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [foodToDelete, setFoodToDelete] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [newFood, setNewFood] = useState({
     name: '',
@@ -57,10 +62,23 @@ const FoodManagement = () => {
   });
 
   useEffect(() => {
-    fetchFoods();
-    fetchCategories();
-    fetchAdditionalOptions();
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchFoods(),
+        fetchCategories(),
+        fetchAdditionalOptions()
+      ]);
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchFoods = async () => {
     try {
@@ -92,6 +110,7 @@ const FoodManagement = () => {
     } catch (error) {
       console.error('Error fetching foods:', error);
       toast.error(error.message || 'Failed to load food items.');
+      throw error;
     }
   };
 
@@ -114,6 +133,7 @@ const FoodManagement = () => {
     } catch (error) {
       console.error('Error fetching categories:', error);
       toast.error('Failed to load categories.');
+      throw error;
     }
   };
 
@@ -136,6 +156,58 @@ const FoodManagement = () => {
     } catch (error) {
       console.error('Error fetching additional options:', error);
       toast.error('Failed to load additional options.');
+      throw error;
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const result = await Swal.fire({
+      title: 'Delete All Foods?',
+      text: 'Are you sure you want to delete all food items? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete all!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      setIsDeleting(true);
+      try {
+        // Delete all foods one by one since there's no bulk delete endpoint
+        const deletePromises = foods.map(food => 
+          fetch(`${BACKEND_URL}/api/foods/${food.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+            },
+          })
+        );
+
+        await Promise.all(deletePromises);
+
+        await Swal.fire({
+          title: 'Deleted!',
+          text: 'All food items have been deleted successfully.',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        });
+
+        // Refresh the foods list
+        await fetchFoods();
+      } catch (error) {
+        console.error('Error deleting all foods:', error);
+        await Swal.fire({
+          title: 'Error!',
+          text: 'Failed to delete all food items. Please try again.',
+          icon: 'error'
+        });
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -321,16 +393,26 @@ const FoodManagement = () => {
     }
   };
 
-  const confirmDelete = (id) => {
-    setFoodToDelete(id);
-    setIsDeleteDialogOpen(true);
+  const confirmDelete = async (id) => {
+    const result = await Swal.fire({
+      title: 'Delete Food Item?',
+      text: 'Are you sure you want to delete this food item? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      await handleDeleteFood(id);
+    }
   };
 
-  const handleDeleteFood = async () => {
-    if (foodToDelete === null) return;
-
+  const handleDeleteFood = async (id) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/foods/${foodToDelete}`, {
+      const response = await fetch(`${BACKEND_URL}/api/foods/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -348,39 +430,78 @@ const FoodManagement = () => {
         }
       }
 
-      toast.success('Food item deleted successfully');
-      setIsDeleteDialogOpen(false);
-      setFoodToDelete(null);
+      await Swal.fire({
+        title: 'Deleted!',
+        text: 'Food item has been deleted successfully.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
+
       fetchFoods();
     } catch (error) {
       console.error('Error deleting food:', error);
-      toast.error(error.message || 'Failed to delete food item.');
+      await Swal.fire({
+        title: 'Error!',
+        text: 'Failed to delete food item. Please try again.',
+        icon: 'error'
+      });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <LoadingSpinner size="lg" />
+        <span className="ml-2">Loading food items...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Food Management</h2>
-        {categories.length === 0 ? (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Please add a category before adding food items.
-            </span>
-            <Button variant="default" asChild>
-              <Link to="/admin/dashboard/categories">
-                <Plus className="mr-2 h-4 w-4" /> Add Category
-              </Link>
+        <div className="flex gap-2">
+          {foods.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAll}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash className="mr-2 h-4 w-4" />
+                  Delete All
+                </>
+              )}
             </Button>
-          </div>
-        ) : (
-          <Button 
-            variant="default" 
-            onClick={() => setIsAddDialogOpen(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Add New Food
-          </Button>
-        )}
+          )}
+          {categories.length === 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Please add a category before adding food items.
+              </span>
+              <Button variant="default" asChild>
+                <Link to="/admin/dashboard/categories">
+                  <Plus className="mr-2 h-4 w-4" /> Add Category
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <Button 
+              variant="default" 
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" /> Add New Food
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card className="p-4">
