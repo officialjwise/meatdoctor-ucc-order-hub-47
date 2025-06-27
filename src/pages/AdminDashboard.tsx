@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -106,7 +107,6 @@ const AdminDashboard = () => {
       const data = await response.json();
       setBookings(data.orders || []);
     } catch (error) {
-      console.error('Error loading bookings:', error);
       toast.error(error.message || 'Failed to load bookings. Please try again.');
     } finally {
       setLoading(false);

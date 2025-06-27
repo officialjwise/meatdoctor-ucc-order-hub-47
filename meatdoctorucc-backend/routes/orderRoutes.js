@@ -9,8 +9,8 @@ const router = express.Router();
 router.post('/', validateOrder, validate, createOrder);
 router.get('/', authMiddleware, getOrders);
 router.delete('/delete-all', authMiddleware, deleteAllOrders);
+router.get('/track/:orderId', trackOrder);
 router.put('/:id', authMiddleware, updateOrder);
 router.delete('/:id', authMiddleware, deleteOrder);
-router.get('/track/:orderId', trackOrder);
 
 module.exports = router;

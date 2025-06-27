@@ -106,7 +106,6 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
         onBookingsUpdate(data.orders);
       }
     } catch (error) {
-      console.error('Error loading bookings:', error);
       toast.error('Failed to load bookings');
       setBookings([]);
       setFilteredBookings([]);
@@ -142,7 +141,6 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
         loadBookings(); // Reload the bookings list
       }
     } catch (error) {
-      console.error('Error deleting all orders:', error);
       showErrorAlert('Error', 'Failed to delete all orders. Please try again.');
     } finally {
       setLoading(false);
@@ -151,8 +149,6 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
-      console.log(`Updating order ${orderId} to status: ${newStatus}`);
-      
       const response = await fetch(`${BACKEND_URL}/api/orders/${orderId}`, {
         method: 'PUT',
         headers: {
@@ -166,22 +162,17 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
         throw new Error('Failed to update order status');
       }
 
-      console.log('Order status updated successfully, sending SMS...');
-      
-      // Send SMS notification after successful status update
       await sendStatusUpdateSMS(orderId, newStatus);
 
       toast.success('Order status updated successfully and SMS sent');
       loadBookings();
     } catch (error) {
-      console.error('Error updating order status:', error);
       toast.error('Failed to update order status');
     }
   };
 
   const sendStatusUpdateSMS = async (orderId: string, newStatus: string) => {
     try {
-      // Get order details first
       const orderResponse = await fetch(`${BACKEND_URL}/api/orders/track/${orderId}`, {
         method: 'GET',
         headers: {
@@ -191,7 +182,6 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
 
       if (orderResponse.ok) {
         const orderData = await orderResponse.json();
-        console.log('Order data for SMS:', orderData);
         
         const smsResponse = await fetch(`${BACKEND_URL}/api/orders/send-sms`, {
           method: 'POST',
@@ -204,15 +194,8 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
             message: `Your order ${orderId} status has been updated to: ${newStatus}. Track your order here: https://meatdoctorucc.netlify.app/track-order/${orderId}`,
           }),
         });
-
-        if (smsResponse.ok) {
-          console.log('SMS sent successfully');
-        } else {
-          console.error('Failed to send SMS:', await smsResponse.text());
-        }
       }
     } catch (error) {
-      console.error('Error sending SMS:', error);
       // SMS sending error - don't show to user as order update was successful
     }
   };
@@ -242,13 +225,11 @@ const BookingsTable = ({ bookings: initialBookings, onBookingsUpdate, initialSta
         loadBookings();
       }
     } catch (error) {
-      console.error('Error deleting order:', error);
       showErrorAlert('Error', 'Failed to delete order. Please try again.');
     }
   };
 
   const handleViewOrder = (booking: any) => {
-    console.log('Viewing order:', booking);
     setSelectedOrder(booking);
     setIsOrderModalOpen(true);
   };
