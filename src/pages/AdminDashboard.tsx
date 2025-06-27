@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useIsMobile } from '@/hooks/use-mobile';
-import AdminNavbar from '@/components/AdminNavbar';
+import AppSidebar from '@/components/AppSidebar';
 import Dashboard from '@/pages/Dashboard';
 import BookingsTable from '@/components/BookingsTable';
 import SettingsPanel from '@/components/SettingsPanel';
@@ -13,16 +12,16 @@ import PaymentMethodManagement from '@/components/PaymentMethodManagement';
 import CategoryManagement from '@/components/CategoryManagement';
 import AdditionalOptionsManagement from '@/components/AdditionalOptionsManagement';
 
+import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { Bell, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 const AdminDashboard = () => {
-  const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
@@ -186,42 +185,38 @@ const AdminDashboard = () => {
   );
   
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-background">
-      <div className="flex flex-col md:flex-row">
-        {/* Sidebar */}
-        <AdminNavbar 
-          isMobile={isMobile} 
-          onOrdersMenuClick={handleOrdersMenuNavigation}
-        />
+    <SidebarProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-background w-full flex">
+        <AppSidebar onOrdersMenuClick={handleOrdersMenuNavigation} />
         
-        {/* Main Content */}
-        <main className="flex-1">
-          {isMobile && (
-            <div className="h-16 bg-gray-50 dark:bg-background"> {/* Spacer for mobile view */}
-              {/* Navbar is rendered above the content in mobile view */}
+        <SidebarInset className="flex-1">
+          {/* Header */}
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4">
+            <SidebarTrigger className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" />
+            <div className="flex-1" />
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
             </div>
-          )}
-          
-          <div className="p-4 md:p-8">
-            <div className="mb-6 flex justify-between items-center">
+          </header>
+
+          {/* Main Content */}
+          <main className="flex-1 p-4 md:p-6">
+            <div className="mb-6">
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
                 {getCurrentPageTitle()}
               </h1>
-              <div className="flex items-center gap-4">
-                <ThemeToggle />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </Button>
-              </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-4 md:p-6">
               <Routes>
                 <Route path="/" element={<Dashboard onDashboardFilter={handleDashboardFilter} />} />
                 <Route path="orders" element={
@@ -243,10 +238,10 @@ const AdminDashboard = () => {
                 <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
               </Routes>
             </div>
-          </div>
-        </main>
+          </main>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
