@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Clock, MapPin, Phone, Package } from 'lucide-react';
 import { showErrorAlert } from '@/lib/alerts';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 const TrackOrder = () => {
   const { orderId } = useParams();

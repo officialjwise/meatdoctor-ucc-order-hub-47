@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 interface DashboardStats {
   totalOrders: number;

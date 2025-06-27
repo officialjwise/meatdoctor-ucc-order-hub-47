@@ -7,7 +7,7 @@ import { CheckCircle, ArrowLeft, Phone, MapPin, Clock, CreditCard } from 'lucide
 import { Booking } from '@/lib/types';
 import SmsLoadingModal from '@/components/SmsLoadingModal';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://meatdoctor-ucc-officialjwise-dev.apps.rm3.7wse.p1.openshiftapps.com';
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
