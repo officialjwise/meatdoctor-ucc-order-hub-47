@@ -1,3 +1,4 @@
+
 const { supabase } = require('../config/supabase');
 const logger = require('../utils/logger');
 
@@ -102,7 +103,7 @@ const getAnalytics = async (req, res) => {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Orders by day for histogram
+    // Orders by day for histogram - Fixed to properly calculate today's orders
     const ordersByDay = orders.reduce((acc, order) => {
       const date = new Date(order.created_at).toISOString().split('T')[0];
       acc[date] = (acc[date] || 0) + 1;
@@ -111,6 +112,13 @@ const getAnalytics = async (req, res) => {
     const ordersByDayArray = Object.entries(ordersByDay)
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Calculate today's orders correctly
+    const today = new Date().toISOString().split('T')[0];
+    const todayOrders = orders.filter(order => {
+      const orderDate = new Date(order.created_at).toISOString().split('T')[0];
+      return orderDate === today;
+    });
 
     // Prepare detailed data for insights
     const detailedFoodData = Object.entries(foodCounts).map(([name, count]) => {
@@ -171,6 +179,7 @@ const getAnalytics = async (req, res) => {
       paymentModes,
       drinkPreferences,
       ordersByDay: ordersByDayArray,
+      todayOrders: todayOrders.length, // Fixed: Now returns correct count for today
       detailedFoodData,
       detailedCategoryData,
       detailedLocationData,

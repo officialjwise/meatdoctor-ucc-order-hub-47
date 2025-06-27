@@ -51,7 +51,7 @@ const Dashboard = ({ onDashboardFilter }) => {
           pendingOrders: data.statusCounts?.Pending || 0,
           completedOrders: data.statusCounts?.Delivered || 0,
           cancelledOrders: data.statusCounts?.Cancelled || 0,
-          todayOrders: data.ordersByDay?.slice(-1)[0]?.count || 0,
+          todayOrders: data.todayOrders || 0, // Fixed: Now uses the correct field
         });
       }
     } catch (error) {
